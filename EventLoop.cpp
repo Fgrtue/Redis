@@ -27,16 +27,13 @@ void EventLoop::checkReady() {
 
     pollCheck();
     for (int ind = 1; ind < pfds_.size(); ++ind) {
-        if (pfds_[ind].revents & POLLIN) {
+        if (pfds_[ind].revents) {
             Conn* conn = connections_[pfds_[ind].fd].get();
-            eventHandler.connection_io(conn);
+            eventHandler_.connection_io(conn);
             if (conn->st_ == Conn::State::END) {
                 connections_[pfds_[ind].fd] = nullptr;
             }
         }
-    }
-    if (pfds_[0].revents & POLLIN) {
-        acceptNewConn();
     }
 }
 
@@ -49,6 +46,8 @@ void EventLoop::pollCheck() {
 }
 
 void EventLoop::acceptNewConn() {
+    if (pfds_[0].revents == 0) return;
+
     int fd_n = acceptCheck();
     makeNonBlock(fd_n);
     if (fd_n >= connections_.size()) {

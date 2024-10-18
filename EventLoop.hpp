@@ -9,7 +9,9 @@
 #include <string>
 #include <fcntl.h>
 #include <stdexcept>
+#include <iostream>
 #include "EventHandler.hpp"
+#include "Conn.hpp"
 
 // Manages the core loop and registers event handlers
 
@@ -21,44 +23,27 @@
 // polls on the file descriptors, and in case an event happens
 // handles it with the right function
 
-struct Conn
-{
-    static constexpr const uint64_t max_mes = 1024UL;
+/*
+while work_not_done(fd):
+    do_something_to_client(fd)
 
-    enum class State {
-        REQ,
-        RES,
-        END
-    };
-
-    Conn() = default;
-
-    Conn(int fd, State st)
-    : connfd_(fd)
-    , st_(st)
-    {}
-
-    ~Conn() {
-        if (connfd_ != -1) {
-            close(connfd_);
-        } 
-    }
-
-    int connfd_ = -1;
-    State st_ = State::REQ;
-    std::array<uint8_t, max_mes> r_buf;
-    uint32_t r_buf_size = 0;
-    std::array<uint8_t, max_mes> w_buf;
-    uint32_t w_buf_size = 0;
-    uint32_t w_buf_send = 0;
-};
+def do_something_to_client(fd):
+    if should_read_from(fd):
+        data = read_until_EAGAIN(fd)
+        process_incoming_data(data)
+    while should_write_to(fd):
+        write_until_EAGAIN(fd)
+    if should_close(fd):
+        destroy_client(fd)
+*/
 
 class EventLoop {
 
 public:
 
-    EventLoop(int fd_) 
+    EventLoop(int fd_, EventHandler&& eventHandler) 
     : listenfd_(fd_)
+    , eventHandler_(std::move(eventHandler))
     {
         makeNonBlock(listenfd_);
     }
@@ -108,5 +93,5 @@ private:
     std::vector<struct pollfd> pfds_ = {{listenfd_, POLLIN, 0}};
     std::vector<std::unique_ptr<Conn>> connections_;
     struct sockaddr_storage client_addr_;
-    EventHandler eventHandler;
+    EventHandler eventHandler_;
 };

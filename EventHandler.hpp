@@ -1,5 +1,14 @@
 #pragma once
 
+#include <sys/socket.h>
+#include <unistd.h>
+#include <string>
+#include <iostream>
+#include <vector>
+#include <assert.h>
+#include <map>
+#include "Conn.hpp"
+
 // Handles individual client connections
 
 // Each time a connection is ready, the EventLoop delegates
@@ -11,38 +20,76 @@
 
 struct Conn;
 
+using std::cout;
+
+enum class Res {
+   OK,
+   ERR,
+   NX,
+};
+
 class EventHandler {
-public: 
+public:
+
+   EventHandler();
+
    void connection_io(Conn* conn);
 
 private:
 
+   void to_initial();
+
+   bool try_fill_buffer();
+
    // Copy request into read buffer
 
-   bool read_request();
+   void read_request();
 
-   // Check that we can read the request
-   // 1. The length is provided
-   // 2. The length is less than the message
-   // 3. The length + 4 bytes for the lenght is not more
-   // than the amounth that we read so far
+   // Check that read was valid
 
-   // Perform the request *
-
-   // Move the buffer, erasing what has been read so far
+   bool check_read();
    
    // Write response
 
+   bool try_flush_buffer();
+
    // Copy data into the wright buffer
+
+   void write_response();
+
    // Perform the checks of errors
    // Check if all the message was sent
+
+   bool check_write();
 
    // * Perform the request
    // Parse request
    // Choose the right request: get, set, del
    // Depending on the request -- perform it
 
-   ssize_t rv = 0;
-   Conn* conn_;
+   bool try_one_request();
 
+   bool check_read_buffer(int *len);
+
+   void fill_write_buffer(int len);
+
+   bool do_request(int len);
+
+
+   bool parseReq(int len, uint32_t pos);
+
+   void do_get();
+
+   void do_del();
+
+   void do_set();
+
+   ssize_t  rv = 0;
+   uint32_t wlen_ = 0;
+   Res      rescode_ = Res::OK;
+   Conn*    conn_;
+
+   std::vector<std::string> cmd_;
+   
+   std::map<std::string, std::string> g_map;
 };
