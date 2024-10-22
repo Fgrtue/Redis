@@ -23,15 +23,13 @@ struct Conn;
 using std::cout;
 
 enum class Res : uint8_t {
-    OK = 0x00,
-    ERR = 0x01,
-    NX = 0x02,
+    OK,
+    ERR,
+    NX,
 };
 
 class EventHandler {
 public:
-
-   EventHandler();
 
    void connection_io(Conn* conn);
 

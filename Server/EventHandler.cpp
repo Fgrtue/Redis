@@ -2,11 +2,6 @@
 #include <assert.h>
 #include <cstring>
 
-static const std::string err_msg = "unknown cmd";
-
-EventHandler::EventHandler() {
-    cmd_.resize(3);
-}
 
 void EventHandler::connection_io(Conn* conn) {
     to_initial();
@@ -26,12 +21,14 @@ void EventHandler::to_initial() {
     wlen_ = 0;
     rescode_ = Res::OK;
     conn_ = nullptr;
-    cmd_.assign(3, "");
+    cmd_.clear();
 }
 
 bool EventHandler::try_fill_buffer() {
+
     read_request();
     if (!check_read()) return false;
+    // ### Add a function for updating the end of the buffer
     conn_->r_buf_size += rv;
     while(try_one_request()) {};
     return conn_->st_ == Conn::State::REQ;
@@ -39,7 +36,7 @@ bool EventHandler::try_fill_buffer() {
 
 // Copy data into the read_buff
 void EventHandler::read_request() {
-
+    // ### Add a function for computing cap depending on the size available in buffer
     do {
         size_t cap = conn_->r_buf.size() - conn_->r_buf_size;
         rv = recv(conn_->connfd_, &conn_->r_buf[conn_->r_buf_size], cap, 0);
@@ -51,6 +48,7 @@ void EventHandler::read_request() {
 // 2. If error occured and we don't know which one was it
 // 3. If EOF was read
 bool EventHandler::check_read() {
+
     if (rv < 0 && errno == EAGAIN) 
         return false;
     if (rv < 0) {
@@ -127,11 +125,11 @@ bool EventHandler::try_one_request() {
 
 bool EventHandler::check_read_buffer(int *len) {
 
-
+    // ### Add a fucntion for computing what's the actual size of buffer
     if (conn_->r_buf_size < 4) {
         return false;
     }
-
+    // 
     std::memmove(len, conn_->r_buf.data(), 4);
     if (*len > Conn::max_mes) {
         cout << "message too long\n";
@@ -146,10 +144,23 @@ bool EventHandler::check_read_buffer(int *len) {
 }
 
 void EventHandler::fill_write_buffer(int len) {
-    wlen_ += 4;
 
+    wlen_ += 4;
+    int code;
+    switch (rescode_)
+    {
+        case Res::OK:
+            code = 0;
+            break;
+        case Res::ERR:
+            code = 1;
+            break;
+        case Res::NX:
+            code = 2;
+            break;
+    }
     std::memcpy(conn_->w_buf.data(), &wlen_, 4);
-    std::memcpy(&conn_->w_buf[4], &rescode_, 4);
+    std::memcpy(&conn_->w_buf[4], &code, 4);
     conn_->w_buf_size = wlen_ + 4;
     size_t remain = conn_->r_buf_size - 4 - len;
     
@@ -173,16 +184,14 @@ bool EventHandler::do_request(int len) {
 
     // depending on the string, choose one of 3 options
 
-    if (cmd_[0] == "get" && cmd_[2].size() == 0) {
+    if (cmd_[0] == "get" && cmd_.size() == 2) {
         do_get();
-    } else if (cmd_[0] == "del" && cmd_[2].size() == 0) {
+    } else if (cmd_[0] == "del" && cmd_.size() == 2) {
         do_del();
-    } else if (cmd_[0] == "set" && cmd_[2].size() != 0) {
+    } else if (cmd_[0] == "set" && cmd_.size() == 3) {
         do_set();
     } else {
-        cout << "Unexpected\n";
         rescode_ = Res::ERR;
-        std::memcpy(&conn_->w_buf[8], err_msg.data(), err_msg.size());
     }
     return true;
 }
@@ -208,7 +217,7 @@ bool EventHandler::parseReq(int len, uint32_t pos) {
         if (pos + 4 + sz > len + 4) {
             return false;
         }
-        cmd_[count] = std::string((char *)&conn_->r_buf[pos + 4], sz);
+        cmd_.emplace_back(std::string((char *)&conn_->r_buf[pos + 4], sz));
         pos += 4 + sz;
     }
     if (pos != len + 4) {
@@ -218,21 +227,22 @@ bool EventHandler::parseReq(int len, uint32_t pos) {
 }
 
 void EventHandler::do_get() {
+
     if (g_map.find(cmd_[1]) == g_map.end()) {
         rescode_ = Res::NX;
     }
     assert(cmd_[1].size() <= Conn::max_mes);
-    std::memcpy(&conn_->w_buf[8], cmd_[1].data(), cmd_[1].size());
-    wlen_ += cmd_[1].size();
-    cout << "Get:" << cmd_[1] << "\n";
+    std::string val = g_map[cmd_[1]];
+    std::memcpy(&conn_->w_buf[8], val.data(), val.size());
+    wlen_ += val.size();
 }
 
 void EventHandler::do_del() {
-    cout << "Del:" << cmd_[1] << "\n";
+
     g_map.erase(cmd_[1]);
 }
 
 void EventHandler::do_set() {
-    cout << "Set:" << cmd_[1] << "->" << cmd_[2] << "\n";
+
     g_map[cmd_[1]] = cmd_[2];
 }

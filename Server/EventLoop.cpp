@@ -39,6 +39,7 @@ void EventLoop::checkReady() {
             Conn* conn = connections_[pfds_[ind].fd].get();
             eventHandler_.connection_io(conn);
             if (conn->st_ == Conn::State::END) {
+                writeAddr("Connection end: ");
                 connections_[pfds_[ind].fd] = nullptr;
             }
         }
@@ -68,18 +69,18 @@ int EventLoop::acceptCheck() {
     
     socklen_t sz = sizeof(client_addr_);
     int fd_n = accept(listenfd_, (struct sockaddr* )&client_addr_, &sz);
-    writeAccepted();
+    writeAddr("Connection from: ");
     if (fd_n == -1) {
         throw std::runtime_error("accept failed");
     }
     return fd_n;
 }
 
-void EventLoop::writeAccepted() {
+void EventLoop::writeAddr(std::string str) {
     socklen_t sz = sizeof(client_addr_);
     char s[sz];
     inet_ntop(client_addr_.ss_family, get_in_addr((struct sockaddr *)&client_addr_), s, sz);
-    std::cout << "Connection from: " << s << "\n";
+    std::cout << str << s << "\n";
 }
 
 void EventLoop::makeNonBlock(int fd_n) {

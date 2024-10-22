@@ -84,7 +84,7 @@ private:
 
     int acceptCheck();
 
-    void writeAccepted();
+    void writeAddr(std::string);
     
     // Making the file descriptor non-blocking
     // Do the same fo listening fd
