@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <array>
 #include <unistd.h>
-
+#include "CircBuf.hpp"
 
 struct Conn
 {
@@ -27,11 +27,6 @@ struct Conn
 
     int connfd_ = -1;
     State st_ = State::REQ;
-    // CircBuf r_buf;
-    std::array<uint8_t, 4UL + max_mes> r_buf;
-    uint32_t r_buf_size = 0;
-    // Circ Buf w_buf;
-    std::array<uint8_t, 4UL + max_mes> w_buf;
-    uint32_t w_buf_size = 0;
-    uint32_t w_buf_sent = 0;
+    CircBuf<4UL + max_mes> r_buf;
+    CircBuf<4UL + max_mes> w_buf;
 };

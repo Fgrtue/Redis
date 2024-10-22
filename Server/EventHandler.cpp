@@ -4,8 +4,9 @@
 
 
 void EventHandler::connection_io(Conn* conn) {
-    to_initial();
-    conn_ = conn;
+
+    to_initial(conn);
+
     if (conn_->st_ == Conn::State::REQ) {
         while(try_fill_buffer()) {};
     } else if (conn_->st_ == Conn::State::RES) {
@@ -15,21 +16,24 @@ void EventHandler::connection_io(Conn* conn) {
     }
 }
 
-void EventHandler::to_initial() {
+void EventHandler::to_initial(Conn* conn) {
 
     rv = 0;
     wlen_ = 0;
     rescode_ = Res::OK;
-    conn_ = nullptr;
+    conn_ = conn;
+    r_buf = &conn_->r_buf;
+    w_buf = &conn->w_buf;
+    res_value.clear();
     cmd_.clear();
 }
 
 bool EventHandler::try_fill_buffer() {
 
+    // 0. readReq
     read_request();
     if (!check_read()) return false;
-    // ### Add a function for updating the end of the buffer
-    conn_->r_buf_size += rv;
+    // # 3.r_buf->UpdateEnd(rv); -- No need -> we'll do it in function automatically while reading
     while(try_one_request()) {};
     return conn_->st_ == Conn::State::REQ;
 }
@@ -37,9 +41,11 @@ bool EventHandler::try_fill_buffer() {
 // Copy data into the read_buff
 void EventHandler::read_request() {
     // ### Add a function for computing cap depending on the size available in buffer
+
     do {
-        size_t cap = conn_->r_buf.size() - conn_->r_buf_size;
-        rv = recv(conn_->connfd_, &conn_->r_buf[conn_->r_buf_size], cap, 0);
+        // FUNCTION: 
+        // r_buf->readNet(conn_->connfd_);
+        rv = r_buf->readNet(conn_->connfd_);
     } while (rv < 0 && errno == EINTR);
 }
 
@@ -57,46 +63,12 @@ bool EventHandler::check_read() {
         return false;       
     }
     if (rv == 0) {
-        if (conn_->r_buf_size > 0) {
+        // # 2. conn_->r_buf.Size();
+        if (r_buf->Size() > 0) {
             cout << "Unexpected EOF\n";
         } else {
             cout << "EOF\n";
         }
-        conn_->setEnd();
-        return false;
-    }
-    return true;
-}
-
-bool EventHandler::try_flush_buffer() {
-
-    write_response();
-    if (!check_write()) return false;
-    conn_->w_buf_sent += rv;
-    assert(conn_->w_buf_sent <= conn_->w_buf_size);
-    if (conn_->w_buf_sent == conn_->w_buf_size) {
-        conn_->setWriteBufZero();
-        conn_->setEnd();
-        return false;
-    }
-    return true;
-}
-
-// sent the data from the write buffer into the socket
-void EventHandler::write_response(){
-
-    do {
-        size_t remain = conn_->w_buf_size - conn_->w_buf_sent;
-        rv = send(conn_->connfd_, &conn_->w_buf[conn_->w_buf_sent], remain, 0);
-    } while (rv < 0 && errno == EINTR);
-}
-
-bool EventHandler::check_write() {
-
-    if (rv < 0 && errno == EAGAIN) 
-        return false;
-    if (rv < 0) {
-        cout << "write error\n";
         conn_->setEnd();
         return false;
     }
@@ -110,7 +82,6 @@ bool EventHandler::try_one_request() {
     if (!check_read_buffer(&len)) {
         return false;
     }
-    uint32_t pos = 4;
     if (!do_request(len)) {
         conn_->setEnd();
         return false;
@@ -125,50 +96,22 @@ bool EventHandler::try_one_request() {
 
 bool EventHandler::check_read_buffer(int *len) {
 
-    // ### Add a fucntion for computing what's the actual size of buffer
-    if (conn_->r_buf_size < 4) {
+    // # 4. r_buf->Size();
+    if (r_buf->Size() < 4) {
         return false;
     }
-    // 
-    std::memmove(len, conn_->r_buf.data(), 4);
+    // # 5. r_buf->fill_buf(len, 4);
+    r_buf->writeToBuff(len, 4);
     if (*len > Conn::max_mes) {
         cout << "message too long\n";
         conn_->setEnd();
         return false;
     }
-
-    if (4 + *len > conn_->r_buf_size) {
+    // # 5.1 r_buf->Size();
+    if (*len > r_buf->Size()) {
         return false;
     }
     return true;
-}
-
-void EventHandler::fill_write_buffer(int len) {
-
-    wlen_ += 4;
-    int code;
-    switch (rescode_)
-    {
-        case Res::OK:
-            code = 0;
-            break;
-        case Res::ERR:
-            code = 1;
-            break;
-        case Res::NX:
-            code = 2;
-            break;
-    }
-    std::memcpy(conn_->w_buf.data(), &wlen_, 4);
-    std::memcpy(&conn_->w_buf[4], &code, 4);
-    conn_->w_buf_size = wlen_ + 4;
-    size_t remain = conn_->r_buf_size - 4 - len;
-    
-    if (remain) {
-        std::memmove(conn_->r_buf.data(), &conn_->r_buf[4 + len], remain);
-    }
-
-    conn_->r_buf_size = remain;
 }
 
 
@@ -177,7 +120,7 @@ void EventHandler::fill_write_buffer(int len) {
 bool EventHandler::do_request(int len) {
 
     // parse requesnt into commands
-    if (!parseReq(len, 4U)) {
+    if (!parseReq(len)) {
         cout << "Bad req\n";
         return false;
     } 
@@ -196,31 +139,38 @@ bool EventHandler::do_request(int len) {
     return true;
 }
 
-bool EventHandler::parseReq(int len, uint32_t pos) {
+bool EventHandler::parseReq(int len) {
 
     if (len < 4) {
         return false;
     }
 
     u_int32_t n = 0;
-    std::memcpy(&n, &conn_->r_buf[pos], 4);
+    // # 6. r_buf->write_to_buf(&n, 4);
+    r_buf->writeToBuff(&n, 4);
+    len -= 4;
     if (n > 3) {
         return false;
     }
-    pos += 4;
     for (int count = 0; count < n; ++count) {
-        if (pos + 4 > len + 4) {
+        if (len - 4 < 0) {
             return false;
         }
-        uint32_t sz = 0;
-        std::memcpy(&sz, &conn_->r_buf[pos], 4);
-        if (pos + 4 + sz > len + 4) {
+        int sz = 0;
+        // # 7. r_buf->write_to_buf(&sz, 4);
+        r_buf->writeToBuff(&sz, 4);
+        if (len - 4 - sz < 0) {
             return false;
         }
-        cmd_.emplace_back(std::string((char *)&conn_->r_buf[pos + 4], sz));
-        pos += 4 + sz;
+        // # 8. r_buf->write_to_buf(&string, sz);
+        std::string command;
+        command.resize(sz);
+        r_buf->writeToBuff(&command[0], sz);
+        cmd_.push_back(command);
+        len  = len - 4 - sz;
     }
-    if (pos != len + 4) {
+    // Find a way to compare how much byte we sent
+    if (len != 0) {
         return false;
     }
     return true;
@@ -232,9 +182,10 @@ void EventHandler::do_get() {
         rescode_ = Res::NX;
     }
     assert(cmd_[1].size() <= Conn::max_mes);
-    std::string val = g_map[cmd_[1]];
-    std::memcpy(&conn_->w_buf[8], val.data(), val.size());
-    wlen_ += val.size();
+    res_value = g_map[cmd_[1]];
+    // # 9. w_buf->read_to_buf(val.data(), val.size()); || save this variable as additional information 
+    // std::memcpy(&conn_->w_buf[8], val.data(), val.size());
+    wlen_ += res_value.size();
 }
 
 void EventHandler::do_del() {
@@ -245,4 +196,65 @@ void EventHandler::do_del() {
 void EventHandler::do_set() {
 
     g_map[cmd_[1]] = cmd_[2];
+}
+
+void EventHandler::fill_write_buffer(int len) {
+
+    wlen_ += 4;
+    int code;
+    switch (rescode_)
+    {
+        case Res::OK:
+            code = 0;
+            break;
+        case Res::ERR:
+            code = 1;
+            break;
+        case Res::NX:
+            code = 2;
+            break;
+    }
+    // 10. w_buf->read_to_buf(&wlen, 4)
+    w_buf->readFromBuff(&wlen_, 4);
+    // 11. w_buf->read_to_buf(&wlen, 4)
+    w_buf->readFromBuff(&code, 4);
+    // +. w_buf->read_to_buf(&savedinfo, size_info);
+    if (res_value.size() != 0) {
+        w_buf->readFromBuff(&res_value[0], res_value.size());
+    }
+
+    // 12. r_buf->UpdateStart(w_buf->Size());
+}
+
+bool EventHandler::try_flush_buffer() {
+
+    write_response();
+    if (!check_write()) return false;
+    if (w_buf->start_ == w_buf->end_) {
+        conn_->setEnd();
+        return false;
+    }
+    return true;
+}
+
+// sent the data from the write buffer into the socket
+void EventHandler::write_response(){
+
+    // 13. w_buf->senNet(conn_->connfd_);
+    static int count = 1; 
+    do {
+        rv = w_buf->sendNet(conn_->connfd_);
+    } while (rv < 0 && errno == EINTR);
+}
+
+bool EventHandler::check_write() {
+
+    if (rv < 0 && errno == EAGAIN) 
+        return false;
+    if (rv < 0) {
+        cout << "write error\n";
+        conn_->setEnd();
+        return false;
+    }
+    return true;
 }

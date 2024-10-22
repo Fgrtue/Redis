@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <map>
 #include "Conn.hpp"
+#include "CircBuf.hpp"
 
 // Handles individual client connections
 
@@ -35,7 +36,7 @@ public:
 
 private:
 
-   void to_initial();
+   void to_initial(Conn* conn);
 
    bool try_fill_buffer();
 
@@ -73,8 +74,7 @@ private:
 
    bool do_request(int len);
 
-
-   bool parseReq(int len, uint32_t pos);
+   bool parseReq(int len);
 
    void do_get();
 
@@ -87,7 +87,12 @@ private:
    Res      rescode_ = Res::OK;
    Conn*    conn_;
 
+   CircBuf<4UL + Conn::max_mes>* r_buf;
+   CircBuf<4UL + Conn::max_mes>* w_buf;
+
    std::vector<std::string> cmd_;
+
+   std::string res_value;
 
    std::map<std::string, std::string> g_map;
 };
