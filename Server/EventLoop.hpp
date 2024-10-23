@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sys/socket.h>
-#include <poll.h>
+#include <sys/epoll.h>
 #include <vector>
 #include <memory>
 #include <cstdint>
@@ -42,12 +42,7 @@ class EventLoop {
 
 public:
 
-    EventLoop(int fd_, EventHandler&& eventHandler) 
-    : listenfd_(fd_)
-    , eventHandler_(std::move(eventHandler))
-    {
-        makeNonBlock(listenfd_);
-    }
+    EventLoop(int fd_, EventHandler&& eventHandler);
 
     void run();
 
@@ -62,14 +57,26 @@ private:
     //    in this case fill the pollfd structure
     //    and add it to pfds_
 
-    void updatePfds();
+    // # 6. Delete this function: no need, since epoll_wait does this automatically
+    //   Create epollWait();
+
+    // void updatePfds();
+
+    void createEpollFd();
+
+    void epollAddFd(int, uint32_t, std::string);
+
+    int epollWait();
 
     // pollFd
     // A simple function for cheching an error
 
-    void pollCheck();
+    // # 8. Delete pollCheck
 
-    void checkReady();
+    // void pollCheck();
+
+    void processEvents(int);
+
 
     // acceptNewConn
     // safely accept a file descriptor
@@ -93,7 +100,17 @@ private:
     void makeNonBlock(int fd);
 
     int listenfd_;
-    std::vector<struct pollfd> pfds_;
+
+    // # 1. Add epollfd; +
+
+    int epollfd_;
+
+    // # 2. Change to epoll_event +
+    //   std::vector<struct epoll_event
+
+    int MAX_EVENTS = 64;
+    std::vector<struct epoll_event> events_;
+
     std::vector<std::unique_ptr<Conn>> connections_;
     struct sockaddr_storage client_addr_;
     EventHandler eventHandler_;

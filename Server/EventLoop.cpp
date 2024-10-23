@@ -8,61 +8,85 @@ static void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+
+EventLoop::EventLoop(int fd_, EventHandler&& eventHandler) 
+: listenfd_(fd_)
+, eventHandler_(std::move(eventHandler))
+{
+        makeNonBlock(listenfd_);
+        createEpollFd();
+        epollAddFd(listenfd_, EPOLLIN, "listen sock");
+}
+
+void EventLoop::createEpollFd() {
+
+    epollfd_ = epoll_create1(0);
+    if (epollfd_ == -1) {
+        throw std::runtime_error("Epoll create failed");
+    }
+    events_.resize(MAX_EVENTS);
+}
+
+void EventLoop::epollAddFd(int fd, uint32_t option, std::string mes) {
+
+    struct epoll_event ev;
+    
+    ev.events = option;
+    ev.data.fd = fd;
+    if (epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &ev) == -1) {
+        throw std::runtime_error("epoll_ctl: " + mes);
+    }
+}
+
 void EventLoop::run() {
     while(true) {
-        updatePfds();
-        checkReady();
-        acceptNewConn();
-    }
-}
 
-void EventLoop::updatePfds() {
-
-    pfds_.clear();
-    pfds_.push_back({listenfd_, POLLIN, 0});
-    for (auto& conn : connections_) {
-        if (conn.get() != nullptr) {
-            struct pollfd pfd_new = {};
-            pfd_new.fd = conn->connfd_;
-            pfd_new.events = conn->st_ == Conn::State::REQ ? POLLIN : POLLOUT;
-            pfd_new.events |= POLLERR;
-            pfds_.push_back(pfd_new);
+        // # 4. Change for epoll_wait
+        int nfds = 0;
+        nfds = epollWait();
+        processEvents(nfds);
+        if (events_.size() == nfds) {
+            events_.resize(2 * events_.size());
         }
+
     }
 }
 
-void EventLoop::checkReady() {
+int EventLoop::epollWait() {
 
-    pollCheck();
-    for (int ind = 1; ind < pfds_.size(); ++ind) {
-        if (pfds_[ind].revents) {
-            Conn* conn = connections_[pfds_[ind].fd].get();
+    int nfds = epoll_wait(epollfd_, events_.data(), events_.size(), -1);
+    if (nfds == -1) {
+        std::runtime_error("Epoll wait failed");
+    }
+    return nfds;
+}
+
+void EventLoop::processEvents(int nfds) {
+
+    for (int ind = 0; ind < nfds; ++ind) {
+        if (events_[ind].data.fd == listenfd_) {
+            acceptNewConn();
+        } else {
+            Conn* conn = connections_[events_[ind].data.fd].get();
             eventHandler_.connection_io(conn);
             if (conn->st_ == Conn::State::END) {
                 writeAddr("Connection end: ");
-                connections_[pfds_[ind].fd] = nullptr;
+                connections_[events_[ind].data.fd] = nullptr;
             }
         }
     }
-}
-
-void EventLoop::pollCheck() {
-
-    int rv = poll(pfds_.data(), (nfds_t)pfds_.size(), 1000);
-    if (rv < 0) {
-        throw std::runtime_error("poll failed");
-    }
-}
+}   
 
 void EventLoop::acceptNewConn() {
-    if (pfds_[0].revents == 0) return;
 
     int fd_n = acceptCheck();
     makeNonBlock(fd_n);
     if (fd_n >= connections_.size()) {
         connections_.resize(fd_n + 1);
     }
+    // Add to connection and add to events_
     connections_[fd_n] = std::make_unique<Conn>(fd_n, Conn::State::REQ);
+    epollAddFd(fd_n, EPOLLIN | EPOLLET, "new socket");
 }
 
 int EventLoop::acceptCheck() {
