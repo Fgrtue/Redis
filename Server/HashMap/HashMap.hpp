@@ -1,0 +1,47 @@
+#include "HashTable.hpp"
+
+class HMap {
+
+    // 1. Insert function which handles the resizing
+
+        // 1. Inserts a node in ht1
+        // 2. If the capacity was reached
+        //     - start resizing
+        // 3. Continue resizing
+
+    HMap();
+
+
+    void insert(const std::string& key, const std::string val);
+
+    // 2. Lookup handles the lookup for both tables
+
+    std::optional<std::string> lookup(const std::string& key);
+
+    // 3. Deletion
+
+    void del(const std::string& key); 
+
+    // 4. startResize
+
+    void startResize();
+
+        // - move the table from ht1 to ht2
+        // - resizes the vector of ht1 to capacity of ht2 * 2
+
+    // 5. continueResize
+
+    void continueResize();
+
+        // - in a loop from 1 to 128
+        // - move the nodes from the second table to the first, until it is non empty
+        // - use resizing pos as an iterator
+        // - in case size of ht2 becomes 0 --> set resizing pos to 0
+
+    HTable ht1;
+    HTable ht2;
+    static constexpr size_t k_resizing_work = 128;
+    size_t resizing_pos = 0; // needed for pointing which exact position are moving
+    int64_t A;
+    int64_t P;
+};
