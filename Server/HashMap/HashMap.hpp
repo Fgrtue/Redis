@@ -1,7 +1,10 @@
 #include "HashTable.hpp"
+#include <assert.h>
 
 class HMap {
 
+
+public: 
     // 1. Insert function which handles the resizing
 
         // 1. Inserts a node in ht1
@@ -9,10 +12,9 @@ class HMap {
         //     - start resizing
         // 3. Continue resizing
 
-    HMap();
+    HMap() = default;
 
-
-    void insert(const std::string& key, const std::string val);
+    void insert(const std::string& key, const std::string& val);
 
     // 2. Lookup handles the lookup for both tables
 
@@ -21,6 +23,8 @@ class HMap {
     // 3. Deletion
 
     void del(const std::string& key); 
+
+    private:
 
     // 4. startResize
 
@@ -42,6 +46,4 @@ class HMap {
     HTable ht2;
     static constexpr size_t k_resizing_work = 128;
     size_t resizing_pos = 0; // needed for pointing which exact position are moving
-    int64_t A;
-    int64_t P;
 };

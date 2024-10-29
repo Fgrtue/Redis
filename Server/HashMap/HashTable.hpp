@@ -4,8 +4,12 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <iostream>
 
 // 1. A node for linked list 
+
+using std::cin;
+using std::cout;
 
 class HMap;
 
@@ -13,9 +17,11 @@ struct Node {
 
     std::string  val_;
     Node*        next_ = nullptr;
-    int64_t     hcode_ = -1;
+    size_t     hcode_ = 0;
 
-    Node(int64_t hcode, const std::string& val)
+    Node() = default;
+
+    Node(size_t hcode, const std::string& val)
     : hcode_(hcode)
     , val_(val)
     , next_(nullptr)
@@ -30,6 +36,8 @@ public:
     // 1. Initialize table
 
     HTable();
+
+    HTable(size_t cap);
 
     HTable(const HTable& other) = delete;
 
@@ -50,7 +58,7 @@ public:
         // from the node to this pointer
         // 3). Increase the size
 
-    void h_insert(Node*);
+    void h_insert(size_t hcode, const std::string& val, Node* nodeNew);
 
     // 3. Lookup element 
 
@@ -58,7 +66,7 @@ public:
         // in a cell until you find the one with the same
         // exact key
 
-    std::optional<std::string> h_find(int64_t hcode) const;
+    std::optional<std::string> h_find(size_t hcode) const;
 
     // 4. Delete
 
@@ -69,20 +77,24 @@ public:
         // 3). Take the ownership from prev to the cur node, call
         // destructor for the node
 
-    Node* h_del(int64_t);
+    Node* h_del(size_t);
 
     // 5. Resize
 
     void h_resize(size_t);
 
+    void print();
+
     private:
 
     void clear();
 
-    bool del(Node* prev, Node* cur);    
+    void del(Node* prev, Node* cur); 
+
+    void tabInit();
     
     static constexpr size_t INIT_CAP = 16;
-    std::vector<std::unique_ptr<Node>> tab_;
+    std::vector<Node*> tab_;
     size_t mask_; // since len = 2^n, we can compute the index easily using
                  // & operator
     size_t size_;
