@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <cstring>
 
-
 void EventHandler::connection_io(Conn* conn) {
 
     to_initial(conn);
@@ -19,32 +18,29 @@ void EventHandler::connection_io(Conn* conn) {
 void EventHandler::to_initial(Conn* conn) {
 
     rv = 0;
-    wlen_ = 0;
-    rescode_ = Res::OK;
     conn_ = conn;
     r_buf = &conn_->r_buf;
     w_buf = &conn->w_buf;
-    res_value.clear();
+    out_.clear();
+    response_.clear();
+    offset_ = 0;
     cmd_.clear();
 }
 
 bool EventHandler::try_fill_buffer() {
 
-    // 0. readReq
     read_request();
-    if (!check_read()) return false;
-    // # 3.r_buf->UpdateEnd(rv); -- No need -> we'll do it in function automatically while reading
+    if (!check_read()) {
+        return false;
+    }
     while(try_one_request()) {};
     return conn_->st_ == Conn::State::REQ;
 }
 
 // Copy data into the read_buff
 void EventHandler::read_request() {
-    // ### Add a function for computing cap depending on the size available in buffer
 
     do {
-        // FUNCTION: 
-        // r_buf->readNet(conn_->connfd_);
         rv = r_buf->readNet(conn_->connfd_);
     } while (rv < 0 && errno == EINTR);
 }
@@ -63,7 +59,6 @@ bool EventHandler::check_read() {
         return false;       
     }
     if (rv == 0) {
-        // # 2. conn_->r_buf.Size();
         if (r_buf->Size() > 0) {
             cout << "Unexpected EOF\n";
         } else {
@@ -78,7 +73,7 @@ bool EventHandler::check_read() {
 bool EventHandler::try_one_request() {
 
     int len = 0;
-
+    out_.clear();
     if (!check_read_buffer(&len)) {
         return false;
     }
@@ -87,27 +82,26 @@ bool EventHandler::try_one_request() {
         return false;
     }
 
-    fill_write_buffer(len);
+    // Start writing Response
 
-    conn_->st_ = Conn::State::RES;
+    // Start sending Response
     while(try_flush_buffer()) {};
     return (conn_->st_ == Conn::State::REQ);
 }
 
 bool EventHandler::check_read_buffer(int *len) {
 
-    // # 4. r_buf->Size();
     if (r_buf->Size() < 4) {
         return false;
     }
-    // # 5. r_buf->fill_buf(len, 4);
     r_buf->writeToBuff(len, 4);
+
+    // # E1. Exceeded Lenght Buffer
     if (*len > Conn::max_mes) {
-        cout << "message too long\n";
+        sendErr(1, "Message too long");
         conn_->setEnd();
         return false;
     }
-    // # 5.1 r_buf->Size();
     if (*len > r_buf->Size()) {
         return false;
     }
@@ -115,26 +109,30 @@ bool EventHandler::check_read_buffer(int *len) {
 }
 
 
-// Having the length of the following message
-// it must retreive this message
 bool EventHandler::do_request(int len) {
+// Retreives the message having the length
 
     // parse requesnt into commands
+    // # E2. Bad request
     if (!parseReq(len)) {
-        cout << "Bad req\n";
+        sendErr(2, "Bad request");
+        // fill_response();
         return false;
     } 
 
-    // depending on the string, choose one of 3 options
-
-    if (cmd_[0] == "get" && cmd_.size() == 2) {
+    // #2. check if command is keys
+    // add do_keys command
+    if (cmd_[0] == "keys" && cmd_.size() == 1) {
+        do_keys();
+    } else if (cmd_[0] == "get" && cmd_.size() == 2) {
         do_get();
     } else if (cmd_[0] == "del" && cmd_.size() == 2) {
         do_del();
     } else if (cmd_[0] == "set" && cmd_.size() == 3) {
         do_set();
     } else {
-        rescode_ = Res::ERR;
+        // # E3. Unknown cmd
+        outErr(3, "Unknown command");
     }
     return true;
 }
@@ -146,7 +144,6 @@ bool EventHandler::parseReq(int len) {
     }
 
     u_int32_t n = 0;
-    // # 6. r_buf->write_to_buf(&n, 4);
     r_buf->writeToBuff(&n, 4);
     len -= 4;
     if (n > 3) {
@@ -157,91 +154,103 @@ bool EventHandler::parseReq(int len) {
             return false;
         }
         int sz = 0;
-        // # 7. r_buf->write_to_buf(&sz, 4);
         r_buf->writeToBuff(&sz, 4);
         if (len - 4 - sz < 0) {
             return false;
         }
-        // # 8. r_buf->write_to_buf(&string, sz);
         std::string command;
         command.resize(sz);
         r_buf->writeToBuff(&command[0], sz);
         cmd_.push_back(command);
         len  = len - 4 - sz;
     }
-    // Find a way to compare how much byte we sent
     if (len != 0) {
         return false;
     }
     return true;
 }
 
+void EventHandler::do_keys() {
+
+    std::vector<std::string> keys = g_map.keys();
+    outArr(keys.size());
+    for (size_t ind = 0; ind < keys.size(); ++ind) {
+        outStr(keys[ind]);
+    }
+}
+
 void EventHandler::do_get() {
 
-    if (g_map.find(cmd_[1]) == g_map.end()) {
-        rescode_ = Res::NX;
+    std::optional<std::string> op = g_map.lookup(cmd_[1]);
+    // # Fill NILL
+    if (op == std::nullopt) {
+        outNil();
+    } else {
+        outStr(op.value());
     }
-    assert(cmd_[1].size() <= Conn::max_mes);
-    res_value = g_map[cmd_[1]];
-    // # 9. w_buf->read_to_buf(val.data(), val.size()); || save this variable as additional information 
-    // std::memcpy(&conn_->w_buf[8], val.data(), val.size());
-    wlen_ += res_value.size();
 }
 
 void EventHandler::do_del() {
 
-    g_map.erase(cmd_[1]);
+    // # Depending on the result fill INT 0 or 1
+    if (g_map.del(cmd_[1])) {
+        outInt(1);
+    } else {
+        outInt(0);
+    }
 }
 
 void EventHandler::do_set() {
 
-    g_map[cmd_[1]] = cmd_[2];
+    // # Return NILL
+    g_map.insert(cmd_[1], cmd_[2]);
+    outNil();
 }
 
-void EventHandler::fill_write_buffer(int len) {
-
-    wlen_ += 4;
-    int code;
-    switch (rescode_)
-    {
-        case Res::OK:
-            code = 0;
-            break;
-        case Res::ERR:
-            code = 1;
-            break;
-        case Res::NX:
-            code = 2;
-            break;
-    }
-    // 10. w_buf->read_to_buf(&wlen, 4)
-    w_buf->readFromBuff(&wlen_, 4);
-    // 11. w_buf->read_to_buf(&wlen, 4)
-    w_buf->readFromBuff(&code, 4);
-    // +. w_buf->read_to_buf(&savedinfo, size_info);
-    if (res_value.size() != 0) {
-        w_buf->readFromBuff(&res_value[0], res_value.size());
-    }
-
-    // 12. r_buf->UpdateStart(w_buf->Size());
+void EventHandler::sendErr(int32_t err_no, std::string msg) {
+    outErr(err_no, msg);
+    fill_write_buffer();
+    try_flush_buffer();
 }
 
 bool EventHandler::try_flush_buffer() {
 
+    conn_->st_ = Conn::State::RES;
+    fill_write_buffer();
     write_response();
-    if (!check_write()) return false;
-    if (w_buf->start_ == w_buf->end_) {
+    if (!check_write()) {
+        return false;
+    }
+    if (response_.size() == offset_) {
         conn_->setEnd();
         return false;
     }
     return true;
 }
 
+
+void EventHandler::fill_write_buffer() {
+
+    if (!out_.empty()) {
+        fill_response();
+    }
+    uint32_t totCap = w_buf->totalSZ() - w_buf->Size();
+    uint32_t needSend = response_.size() - offset_;
+    totCap = std::min(totCap, needSend);
+    w_buf->readFromBuff(&response_[offset_], totCap);
+    offset_ += totCap;
+}
+
+void EventHandler::fill_response() {
+    int32_t wlen = static_cast<int32_t>(out_.size());
+    response_.append((char *)&wlen, 4);
+    response_.append(out_);
+    out_.clear();
+}
+
 // sent the data from the write buffer into the socket
 void EventHandler::write_response(){
 
-    // 13. w_buf->senNet(conn_->connfd_);
-    static int count = 1; 
     do {
         rv = w_buf->sendNet(conn_->connfd_);
     } while (rv < 0 && errno == EINTR);
@@ -258,3 +267,91 @@ bool EventHandler::check_write() {
     }
     return true;
 }
+
+void EventHandler::outNil() {
+
+    out_.push_back(static_cast<char>(SER::NIL));
+}
+
+void EventHandler::outErr(int32_t code, const std::string& msg) {
+
+    out_.push_back(static_cast<char>(SER::ERR));
+    out_.append((char *)&code, 4);
+    uint32_t len = msg.size();
+    out_.append((char *)&len, 4);
+    out_.append(msg);
+}
+
+void EventHandler::outStr(const std::string& str) {
+
+    out_.push_back(static_cast<char>(SER::STR));
+    uint32_t len = static_cast<uint32_t>(str.size());
+    out_.append((char *)&len, 4);
+    out_.append(str);
+}
+
+void EventHandler::outInt(uint64_t num) {
+
+    out_.push_back(static_cast<char>(SER::INT));
+    out_.append((char *)&num, 8);
+}
+
+void EventHandler::outArr(uint64_t n) {
+    out_.push_back(static_cast<char>(SER::ARR));
+    out_.append((char *)&n, 8);
+}
+
+/*
+
+// nil      -> [ mes_len ] [ Ser Code ]
+// err      -> [ mes_len ] [ Ser Code ] [ err code ] [ err_mes ]
+// int      -> [ mes_len ] [ Ser Code ] [ int ]
+// string   -> [ mes_len ] [ Ser Code ] [ str ]
+// array    -> [ mes_len ] [ Ser Code ] [ arr_len ] [ Ser Code1 ] [ str/int ] ... [Ser Code n] [ str/len ] 
+
+
+# 3. Add function for processing different serialization codes 
+ 1. Nil code
+    -> add just ser code
+ 2. Error code
+    -> add ser code
+    -> add the code itself
+    -> add the len of message
+    -> add the message itself
+ 3. out_str
+    -> add ser code
+    -> add len of string
+    -> add string itself
+ 4. out_int
+    -> add ser code
+    -> add the int
+ 5. out_arr
+    -> add ser code
+    -> add length of array
+
+# 4. Depending on command we receive one of the codes
+
+    -> Nil code is obtained in case of succes of insert
+    -> Err code is obtained in case something went wrong
+    -> Int code is obtained in case of deletion (if it happened or not)
+    -> Str code is obtained in case of a get
+    -> Arr is obtained in case of keys, and followed by the keys
+
+    Once we have the response line we just have to add the lenght for the line
+    and then add just the string to our response --> in fact nothing changes!
+
+# 5. We need to add a function for processing key command
+    -> it will walk through the hm1 and collect all the keys in this map
+    -> it will walk through the hm2 and collect all the keys in it
+    -> the keys are put in a vector of intergers, and then returned
+    -> then we apply out_arr
+    -> and walk through the array, applying out_int
+
+# 6. Change all the places in the code where serialization code must
+    be returned
+
+# 7. Add function for decoding the result from the side of the client
+    -> when received a buffer, decode the first Ser code
+    -> depending on the number apply the function for decoding
+    -> let it work recursively
+*/

@@ -15,14 +15,16 @@ class HMap;
 
 struct Node {
 
+    std::string  key_;
     std::string  val_;
     Node*        next_ = nullptr;
     size_t     hcode_ = 0;
 
     Node() = default;
 
-    Node(size_t hcode, const std::string& val)
-    : hcode_(hcode)
+    Node(const std::string& key, size_t hcode, const std::string& val)
+    : key_(key)
+    , hcode_(hcode)
     , val_(val)
     , next_(nullptr)
     {}
@@ -58,7 +60,7 @@ public:
         // from the node to this pointer
         // 3). Increase the size
 
-    void h_insert(size_t hcode, const std::string& val, Node* nodeNew);
+    void h_insert(const std::string& key, size_t hcode, const std::string& val, Node* nodeNew);
 
     // 3. Lookup element 
 
@@ -82,6 +84,8 @@ public:
     // 5. Resize
 
     void h_resize(size_t);
+
+    std::vector<std::string> h_keys();
 
     void print();
 

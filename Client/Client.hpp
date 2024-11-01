@@ -6,7 +6,15 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
-#include "Conn.hpp"
+#include "Conn/Conn.hpp"
+
+enum class SER {
+    NIL,
+    ERR,
+    STR,
+    INT,
+    ARR,
+};
 
 class Client
 {
@@ -15,7 +23,7 @@ public:
 
     // Has to open socket a connect
 
-    Client(char* addr, const char port[]);
+    Client(const char addr[], const char port[]);
 
     ~Client();
 
@@ -27,9 +35,11 @@ public:
 
     std::string readRes();
 
+    size_t decode(const std::string&, size_t);
+
 private:
 
-    void getAddr(char *addr, const char port[]);
+    void getAddr(const char addr[], const char port[]);
 
     bool fillWbuf(std::vector<std::string>& query);
 
@@ -42,8 +52,6 @@ private:
     bool Connect(struct addrinfo *ai);
 
     bool fillRbuff();
-
-    bool readSafe(void *buf, int len);
     
     Conn conn_;
     struct addrinfo* ai_;

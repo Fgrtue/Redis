@@ -51,7 +51,7 @@ HTable::~HTable() {
     clear();
 }
 
-void HTable::h_insert(size_t hcode, const std::string& val, Node* nodeNew) {
+void HTable::h_insert(const std::string& key, size_t hcode, const std::string& val, Node* nodeNew) {
 
     size_t ind = hcode & mask_;
     Node* prev = tab_[ind];
@@ -64,7 +64,7 @@ void HTable::h_insert(size_t hcode, const std::string& val, Node* nodeNew) {
         prev = ptr;
     }
     if (nodeNew == nullptr) {
-        prev->next_ = new Node(hcode, val);
+        prev->next_ = new Node(key, hcode, val);
     } else {
         prev->next_ = nodeNew;
     }
@@ -101,12 +101,28 @@ Node* HTable::h_del(size_t hcode) {
     return nullptr;
 }
 
-void HTable::h_resize(size_t sz){
+void HTable::h_resize(size_t sz) {
     tab_.clear();
     tab_.resize(sz);
     cap_ = sz;
     mask_ = cap_ - 1;
     tabInit();
+}
+
+std::vector<std::string> HTable::h_keys() {
+
+    std::vector<std::string> keys;
+    keys.reserve(size_);
+    for (size_t ind = 0; ind < tab_.size(); ++ind) {
+
+        // Possible seg fault in case tab_[ind] = NULL
+        Node* next = tab_[ind]->next_;
+        while (next != nullptr) {
+            keys.push_back(next->key_);
+            next = next->next_;
+        }
+    }
+    return keys;
 }
 
 void HTable::clear() {

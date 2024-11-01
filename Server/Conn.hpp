@@ -21,8 +21,6 @@ struct Conn
     
     void setEnd();
 
-    void setWriteBufZero();
-
     ~Conn();
 
     int connfd_ = -1;

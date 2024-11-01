@@ -1,3 +1,4 @@
+#pragma once
 #include "HashTable.hpp"
 #include <assert.h>
 
@@ -22,7 +23,9 @@ public:
 
     // 3. Deletion
 
-    void del(const std::string& key); 
+    bool del(const std::string& key); 
+
+    std::vector<std::string> keys();
 
     private:
 

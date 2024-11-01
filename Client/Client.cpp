@@ -1,5 +1,4 @@
 #include "Client.hpp"
-
 // Клиент
 
 // Берет сокет, но вместо bind и listen делает connect
@@ -8,7 +7,10 @@
 
 // Получает ответы из буффера
 
-Client::Client(char *addr, const char port[]) {
+using std::cout;
+using std::cin;
+
+Client::Client(const char addr[], const char port[]) {
 
     getAddr(addr, port);
     setSocket();
@@ -18,7 +20,7 @@ Client::~Client() {
     freeaddrinfo(ai_);
 }
 
-void Client::getAddr(char *addr, const char port[]) {
+void Client::getAddr(const char addr[], const char port[]) {
     struct addrinfo hints;
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -66,7 +68,6 @@ bool Client::Connect(struct addrinfo* addr) {
 }
 
 bool Client::sendReq(std::vector<std::string>& query) {
-    conn_.setWriteBufZero();
     if (!fillWbuf(query) || !sendWbuf()) {
         return false;
     }
@@ -75,24 +76,20 @@ bool Client::sendReq(std::vector<std::string>& query) {
 
 bool Client::fillWbuf(std::vector<std::string>& query) {
 
-    int len = 4;
-    int n = query.size();
+    int32_t len = 4;
+    int32_t n = query.size();
     for (int i = 0; i < query.size(); ++i) {
         len += 4 + query[i].size();
     }
     if (len > Conn::max_mes) {
         return false;
     }
-    std::memcpy(&conn_.w_buf[conn_.w_buf_size], &len, 4);
-    conn_.w_buf_size += 4;
-    std::memcpy(&conn_.w_buf[conn_.w_buf_size], &n, 4);
-    conn_.w_buf_size += 4;
+    conn_.w_buf.readFromBuff(&len, 4);
+    conn_.w_buf.readFromBuff(&n, 4);
     for (int i = 0; i < query.size(); ++i) {
-        size_t sz = query[i].size();
-        std::memcpy(&conn_.w_buf[conn_.w_buf_size], &sz, 4);
-        conn_.w_buf_size += 4;
-        std::memcpy(&conn_.w_buf[conn_.w_buf_size], query[i].data(), 4);
-        conn_.w_buf_size += query[i].size();
+        int32_t sz = query[i].size();
+        conn_.w_buf.readFromBuff(&sz, 4);
+        conn_.w_buf.readFromBuff(query[i].data(), sz);
     }
     return true;
 }
@@ -100,13 +97,12 @@ bool Client::fillWbuf(std::vector<std::string>& query) {
 bool Client::sendWbuf() {
     // while send is non equal to the size of the buffer
     // continue sending bytes
-    while (conn_.w_buf_sent < conn_.w_buf_size) {
-        int rv = send(conn_.connfd_, &conn_.w_buf[conn_.w_buf_sent], conn_.w_buf_size - conn_.w_buf_sent, 0);
+    while (conn_.w_buf.Size()) {
+        ssize_t rv = conn_.w_buf.sendNet(conn_.connfd_);
         if (rv < 0) {
             std::cerr << "client send error";
             return false;
         }
-        conn_.w_buf_sent += rv;
     }
     return true;
 }
@@ -114,42 +110,76 @@ bool Client::sendWbuf() {
 std::string Client::readRes() {
 
     int len = 0;
-    if(!readSafe(&len, sizeof(len))) {
+    // read the length of message
+    ssize_t rv = recv(conn_.connfd_, &len, 4, 0);
+    if (rv < 0) {
+        cout << "Client read error";
         return "";
     }
-    if (len > Conn::max_mes) {
-        std::cerr << "Response too large\n";
+    if (rv == 0) {
+        cout << "Unexpected EOF";
         return "";
     }
-    if (len < 4) {
-        std::cerr << "Response too short\n";
+    std::string response;
+    response.resize(len);
+    rv = recv(conn_.connfd_, response.data(), len, 0);
+    if (rv < 0) {
+        cout << "Client read error";
         return "";
     }
-    if(!readSafe(conn_.r_buf.data(), len)) {
+    if (rv == 0) {
+        cout << "Unexpected EOF";
         return "";
     }
-    int res_code = 0;
-    std::string res;
-    res.resize(len);
-    std::memcpy(&res_code, conn_.r_buf.data(), 4);
-    std::memcpy(&res[0], &conn_.r_buf[4], len - 4);
-    return std::to_string(res_code) + " " + res;
+    return response;
 }
 
-bool Client::readSafe(void *buf, int len) {
-    int total_read = 0;
-    while (total_read < len) {
-        int remain = len - total_read;
-        int rv = recv(conn_.connfd_, static_cast<char*>(buf) + total_read, remain, 0);
-        if (rv < 0) {
-            std::cerr << "client read error\n";
-            return false;
-        } else if (rv == 0) {
-            std::cerr << "unexpected EOF\n";
-            return false;
+size_t Client::decode(const std::string& res, size_t pos) {
+
+    SER op = static_cast<SER>(res[pos]);
+    ++pos;
+    if (op == SER::NIL) {
+        cout << "nil\n";
+    } else if (op == SER::INT) {
+        cout << "Int: ";
+        int64_t num = 0;
+        memcpy(&num, &res[pos], 8);
+        pos += 8;
+        cout << num << "\n";
+    } else if (op == SER::STR) {
+        cout << "Str: ";
+        int32_t len = 0;
+        memcpy(&len, &res[pos], 4);
+        pos += 4;
+        std::string str;
+        str.resize(len);
+        memcpy(str.data(), &res[pos], len);
+        pos += len;
+        cout << str << "\n";
+    } else if (op == SER::ERR) {
+        cout << "Error code: ";
+        uint32_t err_code = 0;
+        memcpy(&err_code, &res[pos], 4);
+        pos += 4;
+        cout << err_code << "\n";
+        int32_t len = 0;
+        memcpy(&len, &res[pos], 4);
+        pos += 4;
+        std::string str;
+        str.resize(len);
+        memcpy(str.data(), &res[pos], len);
+        pos += len;
+        cout << "Message: " << str << "\n";
+    } else if (op == SER::ARR) {
+        cout << "Array len: ";
+        int32_t len = 0;
+        memcpy(&len, &res[pos], 8);
+        pos += 8;
+        cout << len << "\n";
+        for (int i = 0; i < len; ++i) {
+            pos = decode(res, pos);
         }
-        total_read += rv;
     }
-    return true;
+    return pos;
 }
 

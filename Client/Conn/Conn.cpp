@@ -11,11 +11,6 @@ Conn::~Conn() {
     } 
 }
 
-void Conn::setWriteBufZero() {
-    w_buf_size = 0;
-    w_buf_sent = 0;
-}
-
 void Conn::setEnd() {
     st_ = State::END;
 }
