@@ -1,19 +1,15 @@
 #include "AVL.hpp"
 
-Node::Node(int num, Node* parent) 
-: h(1)
-, sz(1)
-, diff(0)
-, num_(num)
-, left_(nullptr)
-, right_(nullptr)
-, parent_(parent)
-{}
+static int32_t getDiff(const Node* node);
+    
+static uint32_t getHeight(const Node* node);
+
+static uint32_t getSz(const Node* node);
 
 AVL::AVL() {
 
     // allocate space for root node
-    root_ = new Node(0, nullptr);
+    root_ = new Node(0, "", nullptr);
 }
 
 AVL::~AVL() {
@@ -23,6 +19,45 @@ AVL::~AVL() {
     }
     delete root_;
 }
+
+std::optional<std::vector<std::string_view>> AVL::getRange(double score, std::string_view key, int64_t offset, int64_t limit) {
+
+    /*
+    // Node* ub = upperBound(score, key);
+    if (ub = nullptr) {
+        return std::nullopt;
+    }
+    // Node* off = offset(ub, offset);
+    if (off == nullptr) {
+        return std::nullopt;
+    }
+    std::vector<std::string_view> ret;
+    // for(int64_t i = 0; i < limit; ++i) {
+        ret.push_back(off);
+        off = offset(off, 1);
+    }
+    return ret;
+    */
+}
+
+// We search for the element that is equal of larger than the
+// current
+Node* AVL::upperBound(double score, std::string_view key) {
+
+    Node* found = nullptr;
+    for (Node* cur = root_->left_; cur != nullptr; ) {
+        if (cur->less(score, key)) {
+            cur = cur->right_;
+        } else {
+            found = cur;
+            cur = cur->left_;
+        }
+    } 
+    return found;
+}
+
+// Implement offset function.
+
 
 void AVL::delDFS(Node* node) {
 
@@ -50,31 +85,31 @@ void AVL::clearNode(Node* node) {
     delete node;
 }
 
-bool AVL::findTree(int num) {
+bool AVL::findTree(double score, std::string_view key) {
 
-    if (find(num, root_->left_)) {
+    if (find(score, key, root_->left_)) {
         return true;
     } 
     return false;
 }
 
-Node* AVL::find(int num, Node* cur) {
+Node* AVL::find(double score, std::string_view key, Node* cur) {
 
     if (cur == nullptr) {
         return nullptr;
     }
 
     // Compates num with cur->
-    if (cur->num_ == num) {
+    if (cur->eq(score, key)) {
         return cur;
     }
 
     // if <
     // return find(num, cur->left)
-    if (num < cur->num_ ) {
-        return find(num, cur->left_);
+    if (cur->less(score, key)) {
+        return find(score, key, cur->right_);
     } else {
-        return find(num, cur->right_);
+        return find(score, key, cur->left_);
     }
 }
 
@@ -82,44 +117,74 @@ Node* AVL::find(int num, Node* cur) {
 //      if num exists does nothing
 //      else allocates new element
 
-void AVL::insertTree(int num) {
+void AVL::insertTree(Node* node) {
 
     if (root_->left_ == nullptr) {
-        root_->left_ = new Node(num, root_);
+        root_->left_ = node;
     } else {
-        Node* inserted = insert(num, root_->left_);
+        Node* inserted = insert(node, root_->left_);
         if (inserted != nullptr) {
             fixImbalance(inserted);
         }
     }
 }
 
-Node* AVL::insert(int num, Node* cur) {
+Node* AVL::insert(Node* node, Node* cur) {
 
-    // if num == cur.ind
-    //     return nullptr; 
-    if (cur->num_ == num) {
+    if (*cur == *node) {
         return nullptr;
     }
 
-    // in case num < cur->num 
-    //      either insert and return this pointer
-    //      or proceed to the next level of recursion
-    // other case is mirrored
-    if (num < cur->num_) {
-        if (cur->left_ == nullptr) {
-            cur->left_ = new Node(num, cur);
-            return cur->left_;
-        } else {
-            return insert(num, cur->left_);
-        }        
-    } else if (cur->num_ < num) {
+    if (*cur < *node) {
         if (cur->right_ == nullptr) {
-            cur->right_ = new Node(num, cur);
+            cur->right_ = node;
             return cur->right_;
         } else {
-            return insert(num, cur->right_);
+            return insert(node, cur->right_);
         }
+    } else {
+        if (cur->left_ == nullptr) {
+            cur->left_ = node;
+            return cur->left_;
+        } else {
+            return insert(node, cur->left_);
+        }        
+    }
+    return nullptr;
+}
+
+void AVL::insertTree(double score, std::string_view key) {
+
+    if (root_->left_ == nullptr) {
+        root_->left_ = new Node(score, key, root_);
+    } else {
+        Node* inserted = insert(score, key, root_->left_);
+        if (inserted != nullptr) {
+            fixImbalance(inserted);
+        }
+    }
+}
+
+Node* AVL::insert(double score, std::string_view key, Node* cur) {
+
+    if (cur->eq(score, key)) {
+        return nullptr;
+    }
+
+    if (cur->less(score, key)) {
+        if (cur->right_ == nullptr) {
+            cur->right_ = new Node(score, key, cur);
+            return cur->right_;
+        } else {
+            return insert(score, key, cur->right_);
+        }
+    } else {
+        if (cur->left_ == nullptr) {
+            cur->left_ = new Node(score, key, cur);
+            return cur->left_;
+        } else {
+            return insert(score, key, cur->left_);
+        }        
     }
     return nullptr;
 }
@@ -127,12 +192,12 @@ Node* AVL::insert(int num, Node* cur) {
 // Can return null ptr
 // handles the case of root_ == nullptr
 
-Node* AVL::delTree(int num) {
+Node* AVL::delTree(double score, std::string_view key) {
 
     // Try to search for the value firts
     //  if not found: return nullptr
     //  continue otherwise
-    Node* found = find(num, root_->left_);
+    Node* found = find(score, key, root_->left_);
     if (found == nullptr) {
         return nullptr;
     }
@@ -173,24 +238,15 @@ void AVL::fixImbalance(Node* start) {
     while (cur != root_) {
         recomputeParam(cur);
 
-        int32_t leftDiff = 0;
-        int32_t rightDiff = 0;
-        if (cur->left_ != nullptr) {
-            leftDiff = cur->left_->diff;
-        }
-        if (cur->right_ != nullptr) {
-            rightDiff = cur->right_->diff;
-        }
-
         if (cur->diff == -2) {
 
-            if (rightDiff == 1) {
+            if (getDiff(cur->right_) == 1) {
                 rotateRight(cur->right_);
             }
             rotateLeft(cur);
         } else if (cur->diff == 2) {
 
-            if (leftDiff == -1) {
+            if (getDiff(cur->left_) == -1) {
                 rotateLeft(cur->left_);
             }
             rotateRight(cur);
@@ -227,7 +283,7 @@ Node* AVL::rotateLeft(Node* x) {
     }
     // x->left_ = x->left_; 
     x->parent_ = y;
-    y->left_ = x;  //
+    y->left_ = x; 
     // y->right_ = y->right_; 
     y->parent_ = parent;
     recomputeParam(x);
@@ -303,30 +359,17 @@ Node* AVL::extractMin(Node* found) {
     // Now extract found and put rightMin instead of it
     swapNodes(found, rightMin);
     setNull(found);
-    // std::cout << "Found->num: " << found->num_ << "\n";
-    // std::cout << "RightMin: "  << rightMin->num_ << "\n";
-    // std::cout << "RightMinL: " << rightMin->left_ << "\n";
-    // std::cout << "RightMinR: " << rightMin->right_ << "\n";
     return ret;
 }
 
 void AVL::recomputeParam(Node* node) {
     
-    int32_t leftH = 0; 
-    int32_t rightH = 0;
-    int32_t sizeL = 0;
-    int32_t sizeR = 0;
-    if (node->left_ != nullptr) {
-        leftH = node->left_->h;
-        sizeL = node->left_->sz;
-    }
-    if (node->right_ != nullptr) {
-        rightH = node->right_->h;
-        sizeR = node->right_->sz;
-    }
+    int32_t leftH = getHeight(node->left_) ; 
+    int32_t rightH = getHeight(node->right_);
+
     node->h = 1 + std::max(leftH, rightH);
     node->diff = leftH - rightH;
-    node->sz = 1 + sizeL + sizeR;
+    node->sz = 1 + getSz(node->left_) + getSz(node->right_);
 }
 
 // Takes a node to extract (toExtr)
@@ -405,22 +448,37 @@ void AVL::TestCheck() {
 void AVL::testDFS(std::vector<int>& values, Node* cur) {
 
     if (cur->left_ != nullptr) {
-        assert(cur->left_->num_ < cur->num_);
+        // assert(cur->left_->score_ < cur->score_);
         testDFS(values, cur->left_);
     }
-    values.push_back(cur->num_);
+    values.push_back(cur->score_);
     if (cur->right_ != nullptr) {
-        assert(cur->num_ < cur->right_->num_);
+        // assert(cur->score_ < cur->right_->score_);
         testDFS(values, cur->right_);
     }
-    int leftH = 0;
-    int rightH = 0;
-    if (cur->left_ != nullptr) {
-        leftH = cur->left_->h;
-    }
-    if (cur->right_ != nullptr) {
-        rightH = cur->right_->h;
-    }
+    int leftH = getHeight(cur->left_);
+    int rightH = getHeight(cur->right_);
 
     assert(leftH == rightH || leftH == rightH + 1 || leftH + 1 == rightH);
-} 
+}
+
+int32_t getDiff(const Node* node) {
+    if (node != nullptr) {
+        return node->diff;
+    }
+    return 0;
+}
+    
+uint32_t getHeight(const Node* node) {
+    if (node != nullptr) {
+        return node->h;
+    }
+    return 0;
+}
+
+uint32_t getSz(const Node* node) {
+    if (node != nullptr) {
+        return node->sz;
+    }
+    return 0;
+}
