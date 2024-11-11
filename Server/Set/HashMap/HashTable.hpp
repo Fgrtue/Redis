@@ -60,7 +60,7 @@ public:
         // from the node to this pointer
         // 3). Increase the size
 
-    const HNode& h_insert(const std::string& key, size_t hcode, double val, HNode* nodeNew);
+    const HNode* h_insert(const std::string& key, size_t hcode, double val, HNode* nodeNew);
 
     // 3. Lookup element 
 
@@ -68,7 +68,7 @@ public:
         // in a cell until you find the one with the same
         // exact key
 
-    std::optional<const HNode&> h_find(size_t hcode) const;
+    std::optional<const HNode*> h_find(size_t hcode) const;
 
     // 4. Delete
 

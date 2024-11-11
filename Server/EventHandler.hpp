@@ -9,7 +9,7 @@
 #include <map>
 #include "Conn.hpp"
 #include "CircBuf.hpp"
-#include "HashMap/HashMap.hpp"
+#include "Set/Set.hpp"
 
 // In case of testing make testEh a friend class for EventHandler
 
@@ -39,6 +39,7 @@ enum class SER {
     ERR,
     STR,
     INT,
+    DOUB,
     ARR,
 };
 
@@ -69,7 +70,7 @@ private:
 
    bool parseReq(int len);
 
-   void do_keys();
+   void do_range();
 
    void do_get();
 
@@ -109,6 +110,8 @@ private:
 
    void outInt(uint64_t);
 
+   void outDouble(double);
+
    void outArr(uint64_t);
 
    ssize_t  rv = 0;
@@ -124,6 +127,5 @@ private:
 
    uint32_t offset_;
 
-
-   HMap g_map;
+   Set set;
 };

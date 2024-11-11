@@ -1,9 +1,9 @@
 #include "HashMap.hpp"
 
-const HNode& HMap::insert(const std::string& key, double val) {
+const HNode* HMap::insert(const std::string& key, double val) {
 
    size_t hcode = std::hash<std::string>{}(key);
-   HNode inserted = ht1.h_insert(key, hcode, val, nullptr);
+   const HNode* inserted = ht1.h_insert(key, hcode, val, nullptr);
 
    // use 1.0 as k_max_load_factor
    if (ht1.size_ == ht1.cap_) {
@@ -13,11 +13,11 @@ const HNode& HMap::insert(const std::string& key, double val) {
    return inserted;
 }
 
-std::optional<const HNode&> HMap::lookup(const std::string& key) {
+std::optional<const HNode*> HMap::lookup(const std::string& key) {
 
    size_t hcode = std::hash<std::string>{}(key);
 
-   std::optional<const HNode&> res = ht1.h_find(hcode);
+   std::optional<const HNode*> res = ht1.h_find(hcode);
    if (res == std::nullopt) {
         return ht2.h_find(hcode);
    }

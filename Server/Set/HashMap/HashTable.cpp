@@ -51,7 +51,7 @@ HTable::~HTable() {
     clear();
 }
 
-const HNode& HTable::h_insert(const std::string& key, size_t hcode, double val, HNode* nodeNew) {
+const HNode* HTable::h_insert(const std::string& key, size_t hcode, double val, HNode* nodeNew) {
 
     size_t ind = hcode & mask_;
     HNode* prev = tab_[ind];
@@ -59,7 +59,7 @@ const HNode& HTable::h_insert(const std::string& key, size_t hcode, double val, 
     for (; ptr != nullptr; ptr = ptr->next_) {
         if (ptr->hcode_ == hcode) {
             ptr->val_ = val;
-            return *ptr;
+            return ptr;
         }
         prev = ptr;
     }
@@ -69,17 +69,17 @@ const HNode& HTable::h_insert(const std::string& key, size_t hcode, double val, 
         prev->next_ = nodeNew;
     }
     ++size_;
-    return *prev->next_;
+    return prev->next_;
 }
 
-std::optional<const HNode&> HTable::h_find(size_t hcode) const {
+std::optional<const HNode*> HTable::h_find(size_t hcode) const {
 
     size_t ind = hcode & mask_;
     HNode* ptr = tab_[ind]->next_;
 
     for (; ptr != nullptr; ptr = ptr->next_) {
         if (ptr->hcode_ == hcode) {
-            return *ptr;
+            return ptr;
         }
     }
     return std::nullopt;

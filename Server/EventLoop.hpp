@@ -42,7 +42,7 @@ class EventLoop {
 
 public:
 
-    EventLoop(int fd_, EventHandler&& eventHandler);
+    EventLoop(int fd_);
 
     void run();
 

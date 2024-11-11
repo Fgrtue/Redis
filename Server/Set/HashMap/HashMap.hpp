@@ -15,11 +15,11 @@ public:
 
     HMap() = default;
 
-    const HNode& insert(const std::string& key, double val);
+    const HNode* insert(const std::string& key, double val);
 
     // 2. Lookup handles the lookup for both tables
 
-    std::optional<const HNode&> lookup(const std::string& key);
+    std::optional<const HNode*> lookup(const std::string& key);
 
     // 3. Deletion
 

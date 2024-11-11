@@ -13,6 +13,7 @@ enum class SER {
     ERR,
     STR,
     INT,
+    DOUB,
     ARR,
 };
 

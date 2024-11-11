@@ -9,7 +9,7 @@ static uint32_t getSz(const AVLNode* node);
 AVL::AVL() {
 
     // allocate space for root node
-    root_ = new AVLNode(0, "", nullptr);
+    root_ = new AVLNode();
 }
 
 AVL::~AVL() {
@@ -20,14 +20,14 @@ AVL::~AVL() {
     delete root_;
 }
 
-std::optional<std::vector<std::string_view>> AVL::getRange(double score, std::string_view key, int64_t offset, int64_t limit) {
+std::optional<std::vector<std::string>> AVL::getRange(double score, const std::string& key, int64_t offset, int64_t limit) {
 
     AVLNode* ub = upperBound(score, key);
     if (ub == nullptr) {
         return std::nullopt;
     }
     AVLNode* off = offsetNode(ub, offset);
-    std::vector<std::string_view> ret;
+    std::vector<std::string> ret;
     for(int64_t i = 0; i < limit; ++i) {
 
         if (off == nullptr) {
@@ -41,7 +41,7 @@ std::optional<std::vector<std::string_view>> AVL::getRange(double score, std::st
 
 // We search for the element that is equal of larger than the
 // current
-AVLNode* AVL::upperBound(double score, std::string_view key) {
+AVLNode* AVL::upperBound(double score, const std::string& key) {
 
     AVLNode* found = nullptr;
     for (AVLNode* cur = root_->left_; cur != nullptr; ) {
@@ -109,7 +109,7 @@ void AVL::clearNode(AVLNode* node) {
     delete node;
 }
 
-bool AVL::findTree(double score, std::string_view key) {
+bool AVL::findTree(double score, const std::string& key) {
 
     if (find(score, key, root_->left_)) {
         return true;
@@ -117,7 +117,7 @@ bool AVL::findTree(double score, std::string_view key) {
     return false;
 }
 
-AVLNode* AVL::find(double score, std::string_view key, AVLNode* cur) {
+AVLNode* AVL::find(double score, const std::string& key, AVLNode* cur) {
 
     if (cur == nullptr) {
         return nullptr;
@@ -146,6 +146,7 @@ void AVL::insertTree(AVLNode* node) {
     if (root_->left_ == nullptr) {
         root_->left_ = node;
     } else {
+        setNull(node);
         AVLNode* inserted = insert(node, root_->left_);
         if (inserted != nullptr) {
             fixImbalance(inserted);
@@ -162,14 +163,16 @@ AVLNode* AVL::insert(AVLNode* node, AVLNode* cur) {
     if (*cur < *node) {
         if (cur->right_ == nullptr) {
             cur->right_ = node;
-            return cur->right_;
+            node->parent_ = cur;
+            return node;
         } else {
             return insert(node, cur->right_);
         }
     } else {
         if (cur->left_ == nullptr) {
             cur->left_ = node;
-            return cur->left_;
+            node->parent_ = cur;
+            return node;
         } else {
             return insert(node, cur->left_);
         }        
@@ -177,10 +180,13 @@ AVLNode* AVL::insert(AVLNode* node, AVLNode* cur) {
     return nullptr;
 }
 
-void AVL::insertTree(double score, std::string_view key) {
+void AVL::insertTree(double score, const std::string& key) {
 
     if (root_->left_ == nullptr) {
         root_->left_ = new AVLNode(score, key, root_);
+        // std::cout << "We get here1\n";
+        // std::cout << root_->left_ << "\n";
+        // std::cout << root_->left_->left_ << "\n";
     } else {
         AVLNode* inserted = insert(score, key, root_->left_);
         if (inserted != nullptr) {
@@ -189,7 +195,7 @@ void AVL::insertTree(double score, std::string_view key) {
     }
 }
 
-AVLNode* AVL::insert(double score, std::string_view key, AVLNode* cur) {
+AVLNode* AVL::insert(double score, const std::string& key, AVLNode* cur) {
 
     if (cur->eq(score, key)) {
         return nullptr;
@@ -216,7 +222,7 @@ AVLNode* AVL::insert(double score, std::string_view key, AVLNode* cur) {
 // Can return null ptr
 // handles the case of root_ == nullptr
 
-AVLNode* AVL::delTree(double score, std::string_view key) {
+AVLNode* AVL::delTree(double score, const std::string& key) {
 
     // Try to search for the value firts
     //  if not found: return nullptr
@@ -472,12 +478,17 @@ void AVL::TestCheck() {
 void AVL::testDFS(std::vector<int>& values, AVLNode* cur) {
 
     if (cur->left_ != nullptr) {
-        // assert(cur->left_->score_ < cur->score_);
+        // std::cout << "cur: " << cur->key_ << " " << cur->score_ << "\n";
+        // std::cout << "cur->left: " << cur->left_->key_ << " " << cur->left_->score_ << "\n"; 
+        assert(*cur->left_ < *cur);
         testDFS(values, cur->left_);
     }
     values.push_back(cur->score_);
+    // std::cout << cur->score_ << "\n";
     if (cur->right_ != nullptr) {
-        // assert(cur->score_ < cur->right_->score_);
+        // std::cout << "cur: " << cur->key_ << " " << cur->score_ << "\n";
+        // std::cout << "cur->right: " << cur->right_->key_ << " " << cur->right_->score_ << "\n";
+        assert(*cur < *cur->right_);
         testDFS(values, cur->right_);
     }
     int leftH = getHeight(cur->left_);

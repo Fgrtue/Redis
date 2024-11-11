@@ -2,7 +2,7 @@
 
 constexpr double eps = 1e-9;
 
-AVLNode::AVLNode(double score, std::string_view key, AVLNode* parent) 
+AVLNode::AVLNode(double score, const std::string& key, AVLNode* parent) 
 : h(1)
 , sz(1)
 , diff(0)
@@ -17,11 +17,11 @@ bool AVLNode::isEqual(double a, double b) {
     return std::abs(a - b) < eps;
 }
 
-bool AVLNode::eq(double score, std::string_view key) {
+bool AVLNode::eq(double score, const std::string& key) {
     return isEqual(this->score_, score) && this->key_ == key; 
 }
 
-bool AVLNode::less(double score, std::string_view key) {
+bool AVLNode::less(double score, const std::string& key) {
     if (isEqual(this->score_, score)) {
         return this->key_ < key;
     }
@@ -34,7 +34,7 @@ bool AVLNode::operator==(const AVLNode& other) {
 
 bool AVLNode::operator<(const AVLNode& other) {
     if (isEqual(score_, other.score_)) {
-        return key_ < other.key_;
+        return this->key_ < other.key_;
     }
-    return score_ < other.score_;
+    return this->score_ < other.score_;
 }

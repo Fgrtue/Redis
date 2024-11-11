@@ -9,9 +9,8 @@ static void *get_in_addr(struct sockaddr *sa)
 }
 
 
-EventLoop::EventLoop(int fd_, EventHandler&& eventHandler) 
+EventLoop::EventLoop(int fd_) 
 : listenfd_(fd_)
-, eventHandler_(std::move(eventHandler))
 {
         makeNonBlock(listenfd_);
         createEpollFd();

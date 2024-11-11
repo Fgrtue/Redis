@@ -116,20 +116,19 @@ bool EventHandler::do_request(int len) {
     // # E2. Bad request
     if (!parseReq(len)) {
         sendErr(2, "Bad request");
-        // fill_response();
         return false;
     } 
 
     // #2. check if command is keys
     // add do_keys command
-    if (cmd_[0] == "keys" && cmd_.size() == 1) {
-        do_keys();
-    } else if (cmd_[0] == "get" && cmd_.size() == 2) {
+    if (cmd_[0] == "get" && cmd_.size() == 2) {
         do_get();
     } else if (cmd_[0] == "del" && cmd_.size() == 2) {
         do_del();
     } else if (cmd_[0] == "set" && cmd_.size() == 3) {
         do_set();
+    } else if (cmd_[0] == "range" && cmd_.size() == 5) {
+        do_range();
     } else {
         // # E3. Unknown cmd
         outErr(3, "Unknown command");
@@ -146,7 +145,7 @@ bool EventHandler::parseReq(int len) {
     u_int32_t n = 0;
     r_buf->writeToBuff(&n, 4);
     len -= 4;
-    if (n > 3) {
+    if (n > 5) {
         return false;
     }
     for (int count = 0; count < n; ++count) {
@@ -170,30 +169,37 @@ bool EventHandler::parseReq(int len) {
     return true;
 }
 
-void EventHandler::do_keys() {
+void EventHandler::do_range() {
 
-    std::vector<std::string> keys = g_map.keys();
-    outArr(keys.size());
-    for (size_t ind = 0; ind < keys.size(); ++ind) {
-        outStr(keys[ind]);
+    try {
+        double score = std::stod(cmd_[2]);
+        int64_t offset = std::stoll(cmd_[3]);
+        int64_t limit = std::stoll(cmd_[4]);
+        std::vector<std::string> keys = set.getRange(cmd_[1], score, offset, limit);
+        outArr(keys.size());
+        for (size_t ind = 0; ind < keys.size(); ++ind) {
+            outStr(keys[ind]);
+        }
+    } catch (const std::invalid_argument& e) {
+        outErr(4, "Range args must be <string> <double> <int64> <int64>");
     }
 }
 
 void EventHandler::do_get() {
 
-    std::optional<std::string> op = g_map.lookup(cmd_[1]);
+    std::optional<double> op = set.findSet(cmd_[1]);
     // # Fill NILL
     if (op == std::nullopt) {
         outNil();
     } else {
-        outStr(op.value());
+        outDouble(op.value());
     }
 }
 
 void EventHandler::do_del() {
 
     // # Depending on the result fill INT 0 or 1
-    if (g_map.del(cmd_[1])) {
+    if (set.delSet(cmd_[1])) {
         outInt(1);
     } else {
         outInt(0);
@@ -203,8 +209,13 @@ void EventHandler::do_del() {
 void EventHandler::do_set() {
 
     // # Return NILL
-    g_map.insert(cmd_[1], cmd_[2]);
-    outNil();
+    try {
+        double score = std::stod(cmd_[2]);
+        set.insertSet(cmd_[1], score);
+        outNil();
+    } catch (const std::invalid_argument& e) {
+        outErr(4, "Set args must be <string> <double>");
+    }
 }
 
 void EventHandler::sendErr(int32_t err_no, std::string msg) {
@@ -234,7 +245,7 @@ void EventHandler::fill_write_buffer() {
     if (!out_.empty()) {
         fill_response();
     }
-    uint32_t totCap = w_buf->totalSZ() - w_buf->Size();
+    uint32_t totCap = w_buf->computeCap(w_buf->end_, w_buf->start_);
     uint32_t needSend = response_.size() - offset_;
     totCap = std::min(totCap, needSend);
     w_buf->readFromBuff(&response_[offset_], totCap);
@@ -294,6 +305,15 @@ void EventHandler::outInt(uint64_t num) {
 
     out_.push_back(static_cast<char>(SER::INT));
     out_.append((char *)&num, 8);
+}
+
+void EventHandler::outDouble(double score) {
+
+    out_.push_back(static_cast<char>(SER::DOUB));
+    std::string doub = std::to_string(score);
+    uint32_t len = static_cast<uint32_t>(doub.size());
+    out_.append((char *)&len, 4);
+    out_.append(doub);
 }
 
 void EventHandler::outArr(uint64_t n) {

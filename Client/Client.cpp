@@ -122,15 +122,19 @@ std::string Client::readRes() {
     }
     std::string response;
     response.resize(len);
-    rv = recv(conn_.connfd_, response.data(), len, 0);
-    if (rv < 0) {
-        cout << "Client read error";
-        return "";
-    }
-    if (rv == 0) {
-        cout << "Unexpected EOF";
-        return "";
-    }
+    int read = 0;
+    do {
+        rv = recv(conn_.connfd_, &response[read], len - read, 0);
+        if (rv < 0) {
+            cout << "Client read error";
+            return "";
+        }
+        if (rv == 0) {
+            cout << "Unexpected EOF";
+            return "";
+        }
+        read += rv;
+    } while (read != len);
     return response;
 }
 
@@ -179,6 +183,15 @@ size_t Client::decode(const std::string& res, size_t pos) {
         for (int i = 0; i < len; ++i) {
             pos = decode(res, pos);
         }
+    } else if (op == SER::DOUB) {
+        int32_t len = 0;
+        memcpy(&len, &res[pos], 4);
+        pos += 4;
+        std::string str;
+        str.resize(len);
+        memcpy(str.data(), &res[pos], len);
+        pos += len;
+        cout << str << "\n";
     }
     return pos;
 }
