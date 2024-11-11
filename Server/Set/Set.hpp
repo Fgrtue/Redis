@@ -13,7 +13,7 @@ public:
 
     bool delSet(const std::string& key);
 
-    std::vector<std::string> getRange(const std::string& key, double score, int64_t offset, int64_t limit);
+    std::vector<std::string_view> getRange(const std::string& key, double score, int64_t offset, int64_t limit);
 
 private:
 

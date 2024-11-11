@@ -106,7 +106,7 @@ private:
 
    void outErr(int32_t, const std::string&);
 
-   void outStr(const std::string&);
+   void outStr(const std::string_view);
 
    void outInt(uint64_t);
 

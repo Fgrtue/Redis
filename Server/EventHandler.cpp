@@ -175,7 +175,7 @@ void EventHandler::do_range() {
         double score = std::stod(cmd_[2]);
         int64_t offset = std::stoll(cmd_[3]);
         int64_t limit = std::stoll(cmd_[4]);
-        std::vector<std::string> keys = set.getRange(cmd_[1], score, offset, limit);
+        std::vector<std::string_view> keys = set.getRange(cmd_[1], score, offset, limit);
         outArr(keys.size());
         for (size_t ind = 0; ind < keys.size(); ++ind) {
             outStr(keys[ind]);
@@ -293,7 +293,7 @@ void EventHandler::outErr(int32_t code, const std::string& msg) {
     out_.append(msg);
 }
 
-void EventHandler::outStr(const std::string& str) {
+void EventHandler::outStr(const std::string_view str) {
 
     out_.push_back(static_cast<char>(SER::STR));
     uint32_t len = static_cast<uint32_t>(str.size());

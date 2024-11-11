@@ -7,7 +7,7 @@
 
 class AVL {
 
-    using Arr = std::optional<std::vector<std::string>>; 
+    using Arr = std::optional<std::vector<std::string_view>>; 
 
 public:
 
@@ -17,7 +17,7 @@ public:
 
     bool    findTree(double, const std::string&);
 
-    void    insertTree(double, const std::string&);
+    void    insertTree(double, const std::string_view);
 
     void    insertTree(AVLNode*);
 
@@ -35,7 +35,7 @@ private:
 
     AVLNode*   find(double, const std::string&, AVLNode*);
 
-    AVLNode*   insert(double, const std::string&, AVLNode*);
+    AVLNode*   insert(double, const std::string_view, AVLNode*);
 
     AVLNode*   insert(AVLNode*, AVLNode*);
 

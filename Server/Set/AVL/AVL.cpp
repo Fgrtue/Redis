@@ -20,14 +20,14 @@ AVL::~AVL() {
     delete root_;
 }
 
-std::optional<std::vector<std::string>> AVL::getRange(double score, const std::string& key, int64_t offset, int64_t limit) {
+std::optional<std::vector<std::string_view>> AVL::getRange(double score, const std::string& key, int64_t offset, int64_t limit) {
 
     AVLNode* ub = upperBound(score, key);
     if (ub == nullptr) {
         return std::nullopt;
     }
     AVLNode* off = offsetNode(ub, offset);
-    std::vector<std::string> ret;
+    std::vector<std::string_view> ret;
     for(int64_t i = 0; i < limit; ++i) {
 
         if (off == nullptr) {
@@ -180,7 +180,7 @@ AVLNode* AVL::insert(AVLNode* node, AVLNode* cur) {
     return nullptr;
 }
 
-void AVL::insertTree(double score, const std::string& key) {
+void AVL::insertTree(double score, const std::string_view key) {
 
     if (root_->left_ == nullptr) {
         root_->left_ = new AVLNode(score, key, root_);
@@ -195,7 +195,7 @@ void AVL::insertTree(double score, const std::string& key) {
     }
 }
 
-AVLNode* AVL::insert(double score, const std::string& key, AVLNode* cur) {
+AVLNode* AVL::insert(double score, const std::string_view key, AVLNode* cur) {
 
     if (cur->eq(score, key)) {
         return nullptr;

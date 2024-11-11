@@ -4,11 +4,12 @@ void Set::insertSet(const std::string& key, double val) {
 
     std::optional<const HNode*> found = hmap.lookup(key);
     if (!found.has_value()) {
-        hmap.insert(key, val);
-        tree.insertTree(val, key);
+        const HNode* inserted = hmap.insert(key, val);
+        tree.insertTree(val, inserted->key_);
     } else {
         AVLNode* node = tree.delTree(found.value()->val_, key);
-        hmap.insert(key, val);
+        const HNode* inserted = hmap.insert(key, val);
+        node->key_ = inserted->key_;
         node->score_ = val;
         tree.insertTree(node);
     }
@@ -37,9 +38,9 @@ bool Set::delSet(const std::string& key) {
     return true;
 }
 
-std::vector<std::string> Set::getRange(const std::string& key, double score, int64_t offset, int64_t limit) {
+std::vector<std::string_view> Set::getRange(const std::string& key, double score, int64_t offset, int64_t limit) {
 
-    std::optional<std::vector<std::string>> res = tree.getRange(score, key, offset, limit);
+    std::optional<std::vector<std::string_view>> res = tree.getRange(score, key, offset, limit);
     if (res == std::nullopt) {
         return {};
     }
