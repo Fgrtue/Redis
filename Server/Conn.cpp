@@ -1,9 +1,10 @@
 #include "Conn.hpp"
 
 Conn::Conn(int fd, State st)
-    : connfd_(fd)
-    , st_(st)
-    {}
+: connfd_(fd)
+, st_(st)
+, timer_(this)
+{}
 
 Conn::~Conn() {
     if (connfd_ != -1) {

@@ -16,7 +16,8 @@ class HMap;
 struct HNode {
 
     std::string     key_;
-    double     val_;
+    double          val_;
+    // size_t          pos_;
     HNode*          next_ = nullptr;
     size_t          hcode_ = 0;
 

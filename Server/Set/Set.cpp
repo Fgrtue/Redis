@@ -46,3 +46,24 @@ std::vector<std::string_view> Set::getRange(const std::string& key, double score
     }
     return res.value();
 }
+
+/*
+
+void setTTL(key, ttl) {
+    // Looks for an elemen in HMap
+    // if it doesn't exist --> returns nothing
+    // else
+    // Checks its position in heap
+    // if pos == -1 --> creates a new item in the heap
+    // updates the position to the end of the heap
+    // then updates the heap at this position depending on provided timer
+}
+
+void clearHeap(); --> must be reached from process timers in event loop
+    - in a while loop
+    - delete node from the hmap
+    - delete node from the AVL tree
+    - increase the nworks (don't to more than 2000 deletions)
+
+
+*/

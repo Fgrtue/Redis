@@ -4,6 +4,7 @@
 #include <array>
 #include <unistd.h>
 #include "CircBuf.hpp"
+#include "TList.hpp"
 
 struct Conn
 {
@@ -24,7 +25,10 @@ struct Conn
     ~Conn();
 
     int connfd_ = -1;
+    uint64_t startT = 0;
+    TNode    timer_;
     State st_ = State::REQ;
     CircBuf<4UL + max_mes> r_buf;
     CircBuf<4UL + max_mes> w_buf;
+    struct sockaddr_storage addr_;
 };

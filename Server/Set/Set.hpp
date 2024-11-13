@@ -19,4 +19,5 @@ private:
 
     HMap    hmap;
     AVL     tree;
+    // Heap    timers;
 };

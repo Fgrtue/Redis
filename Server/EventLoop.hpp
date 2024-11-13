@@ -11,8 +11,10 @@
 #include <stdexcept>
 #include <iostream>
 #include <arpa/inet.h>
+#include <chrono>
 #include "EventHandler.hpp"
 #include "Conn.hpp"
+#include "TList.hpp"
 
 // Manages the core loop and registers event handlers
 
@@ -91,27 +93,33 @@ private:
 
     int acceptCheck();
 
-    void writeAddr(std::string);
+    void writeAddr(std::string str, Conn* conn);
     
     // Making the file descriptor non-blocking
     // Do the same fo listening fd
-    // 
 
     void makeNonBlock(int fd);
 
-    int listenfd_;
+    void connEnd(Conn* conn);
 
-    // # 1. Add epollfd; +
+    // Timer jobs
+
+    int nextTimerMS();
+
+    void processTimers();
+
+    uint64_t getMonotonicTime();
+
+    int listenfd_;
 
     int epollfd_;
 
-    // # 2. Change to epoll_event +
-    //   std::vector<struct epoll_event
-
     int MAX_EVENTS = 64;
-    std::vector<struct epoll_event> events_;
+    std::vector<struct epoll_event>     events_;
 
-    std::vector<std::unique_ptr<Conn>> connections_;
-    struct sockaddr_storage client_addr_;
-    EventHandler eventHandler_;
+    TList                               timers_;
+    std::vector<std::unique_ptr<Conn>>  connections_;
+
+    EventHandler                        eventHandler_;
+    struct sockaddr_storage             client_addr_;
 };

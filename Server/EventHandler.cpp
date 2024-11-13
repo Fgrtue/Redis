@@ -129,6 +129,13 @@ bool EventHandler::do_request(int len) {
         do_set();
     } else if (cmd_[0] == "range" && cmd_.size() == 5) {
         do_range();
+    // # 1.
+    // } else if (cmd_[0] == "expire" && cmd_.size() == 3) {
+    //      do_expire();
+    // # 2.
+    // } else if (cmd_[0] == "TTL" && cmd_size() == 2) {
+    //      do_ttl(); --> ttl must be non negative
+    //} # 3. ??? do_persist() ??? -- how to implement functionality ?
     } else {
         // # E3. Unknown cmd
         outErr(3, "Unknown command");
