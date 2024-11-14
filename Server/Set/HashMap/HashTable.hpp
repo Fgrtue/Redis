@@ -17,7 +17,7 @@ struct HNode {
 
     std::string     key_;
     double          val_;
-    // size_t          pos_;
+    int64_t          pos_;
     HNode*          next_ = nullptr;
     size_t          hcode_ = 0;
 
@@ -27,6 +27,7 @@ struct HNode {
     : key_(key)
     , hcode_(hcode)
     , val_(val)
+    , pos_(-1)
     , next_(nullptr)
     {}
 };
@@ -69,7 +70,7 @@ public:
         // in a cell until you find the one with the same
         // exact key
 
-    std::optional<const HNode*> h_find(size_t hcode) const;
+    std::optional<HNode*> h_find(size_t hcode) const;
 
     // 4. Delete
 

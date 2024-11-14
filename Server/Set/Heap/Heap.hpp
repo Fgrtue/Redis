@@ -4,13 +4,19 @@
 #include <cstddef>
 #include <cstdint>
 #include <algorithm>
+#include "../HashMap/HashTable.hpp"
 
 struct HNode;
 
 struct HeapNode {
 
-    uint64_t expire;
     HNode*   hnode;
+    uint64_t expire;
+
+    HeapNode(HNode* hnode, uint64_t exp) 
+    : hnode(hnode)
+    , expire(exp)
+    {}
 
     bool operator < (const HeapNode& other) const {
         return expire < other.expire;
@@ -22,23 +28,27 @@ class Heap {
 
 public:
 
-    void insertHeap(HNode*);
+    void insertHeap(HNode*, uint64_t);
 
-    void delHeap();
+    HNode* delHeap();
+
+    void updateHeap(int64_t, uint64_t);
+
+    bool empty();
+
+    HeapNode& operator[] (int64_t);
 
 private:
 
-    size_t heapParent(size_t i);
+    int64_t heapParent(int64_t);
 
-    size_t heapLeft(size_t i);
+    int64_t heapLeft(int64_t);
 
-    size_t heapRight(size_t i);
+    int64_t heapRight(int64_t);
 
-    void   heapDown();
+    void   heapDown(int64_t);
 
-    void   heapUp();
-
-    const HeapNode& operator[] (size_t i);
+    void   heapUp(int64_t);
 
     std::vector<HeapNode> timers_;
 };

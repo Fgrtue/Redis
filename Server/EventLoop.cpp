@@ -138,17 +138,28 @@ void EventLoop::connEnd(Conn* conn) {
 }
 
 int EventLoop::nextTimerMS() {
+    
     // Case when list is empty
-    if (timers_.empty()) {
-        return 1000;
+    uint64_t curTime = getMonotonicTime();
+    uint64_t nextTimer = 1e6;
+    
+    // Microseconds
+    if (!timers_.empty()) {
+        nextTimer = timers_.front()->startT + idleTimeout * 1000;
+    }
+    
+    // # 3. Do TTL timers
+    // Microseconds
+    auto minTTL = topTTL();
+    auto timer = minTTL.has_value() ? minTTL.value() : 1e6;
+    if (timer < nextTimer) {
+        nextTimer = timer;
     }
 
-    // get current time
-    uint64_t curTime = getMonotonicTime();
-    
-    // get time of expiration for the nearest timer
-    uint64_t nextTimer = timers_.front()->startT + idleTimeout * 1000;
-    
+    if (nextTimer == 1e6) {
+        return 1e3;
+    }
+
     // in case the timer has already expired -> return 0
     if (nextTimer <= curTime) {
         return 0;
@@ -156,7 +167,6 @@ int EventLoop::nextTimerMS() {
 
     // otherwise return miliseconds as a differnce in time
     return (static_cast<int>(nextTimer - curTime)) / 1000;
-
 }
 
 void EventLoop::processTimers() {
@@ -175,9 +185,14 @@ void EventLoop::processTimers() {
         writeAddr("Idle connection end: ", conn);
         connEnd(conn);
     }
+    // # 4. Clear Heap
+    clearTTL();
 }
 
-inline uint64_t EventLoop::getMonotonicTime() {
-    auto now = std::chrono::steady_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+void EventLoop::clearTTL() {
+    eventHandler_.clearTTL();
+}
+
+std::optional<uint64_t> EventLoop::topTTL() {
+    return eventHandler_.topTTL();
 }

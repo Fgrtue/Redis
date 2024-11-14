@@ -13,11 +13,11 @@ const HNode* HMap::insert(const std::string& key, double val) {
    return inserted;
 }
 
-std::optional<const HNode*> HMap::lookup(const std::string& key) {
+std::optional<HNode*> HMap::lookup(const std::string& key) {
 
    size_t hcode = std::hash<std::string>{}(key);
 
-   std::optional<const HNode*> res = ht1.h_find(hcode);
+   std::optional<HNode*> res = ht1.h_find(hcode);
    if (res == std::nullopt) {
         return ht2.h_find(hcode);
    }

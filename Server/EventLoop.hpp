@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <arpa/inet.h>
-#include <chrono>
+#include "Clock.hpp"
 #include "EventHandler.hpp"
 #include "Conn.hpp"
 #include "TList.hpp"
@@ -108,7 +108,9 @@ private:
 
     void processTimers();
 
-    uint64_t getMonotonicTime();
+    std::optional<uint64_t> topTTL();
+
+    void clearTTL();
 
     int listenfd_;
 

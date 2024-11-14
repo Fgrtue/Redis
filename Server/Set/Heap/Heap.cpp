@@ -2,37 +2,56 @@
 
 void Heap::insertHeap(HNode* node, uint64_t expire) {
 
-    timers_.emplace_back(expire, node);
-    heapUp();
+    timers_.push_back({node, expire});
+    node->pos_ = timers_.size() - 1;
+    heapUp(node->pos_);
 }
 
 HNode* Heap::delHeap() {
+
+    timers_[0].hnode->pos_ = -1;
+    timers_.back().hnode->pos_ = 0;
+    HNode* node = timers_[0].hnode;
     std::swap(timers_[0], timers_.back());
-    HNode* node = timers_.back().hnode;
     timers_.pop_back();
-    heapDown();
+    heapDown(0);
+    return node;
 }
 
-size_t Heap::heapParent(size_t i) {
+void Heap::updateHeap(int64_t pos, uint64_t ttl) {
+
+    uint64_t curExp = timers_[pos].expire;
+    timers_[pos].expire = ttl;
+    if (curExp < ttl) {
+        heapDown(pos);
+    } else if (ttl < curExp) {
+        heapUp(pos);
+    }
+}
+
+bool Heap::empty() {
+    return timers_.empty();
+}
+
+int64_t Heap::heapParent(int64_t i) {
     return (i - 1) / 2;
 }
 
-size_t Heap::heapLeft(size_t i) {
+int64_t Heap::heapLeft(int64_t i) {
     return (2 * i) + 1;
 }
 
-size_t Heap::heapRight(size_t i) {
+int64_t Heap::heapRight(int64_t i) {
     return (2 * i) + 2;
 }
 
-void  Heap::heapDown() {
+void  Heap::heapDown(int64_t i) {
 
-    size_t n = timers_.size();
-    size_t i = 0;
+    int64_t n = timers_.size();
     while (true) {
-        size_t j = i;
-        size_t ch_left = heapLeft(j);
-        size_t ch_righ = heapRight(j);
+        int64_t j = i;
+        int64_t ch_left = heapLeft(j);
+        int64_t ch_righ = heapRight(j);
         if (ch_left < n && timers_[ch_left] < timers_[j]) {
             j = ch_left;
         }
@@ -42,21 +61,18 @@ void  Heap::heapDown() {
         if (j == i) {
             return ;
         }
-        timers_[i].hnode->pos_ = j;
-        timers_[j].hnode->pos_ = i;
+        std::swap(timers_[i].hnode->pos_, timers_[j].hnode->pos_);
         std::swap(timers_[i], timers_[j]);
         i = j;
     }
 }
 
-void  Heap::heapUp() {
+void  Heap::heapUp(int64_t pos) {
     
-    size_t pos = timers_.size() - 1;
     while (pos > 0) {
-        size_t par = heapParent(pos);
+        int64_t par = heapParent(pos);
         if (timers_[pos] < timers_[par]) {
-            timers_[par].hnode->pos_ = pos;
-            timers_[pos].hnode->pos_ = par;
+            std::swap(timers_[pos].hnode->pos_, timers_[par].hnode->pos_);
             std::swap(timers_[pos], timers_[par]);
             pos = par;
         } else {
@@ -65,3 +81,7 @@ void  Heap::heapUp() {
     }
 }
 
+HeapNode& Heap::operator[](int64_t i) {
+
+    return timers_[i];
+}

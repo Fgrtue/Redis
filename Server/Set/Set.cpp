@@ -15,7 +15,7 @@ void Set::insertSet(const std::string& key, double val) {
     }
 }
 
-std::optional<double> Set::findSet(std::string& key) {
+std::optional<double> Set::findSet(const std::string& key) {
 
     std::optional<const HNode*> found = hmap.lookup(key);
     if (found == std::nullopt) {
@@ -47,23 +47,60 @@ std::vector<std::string_view> Set::getRange(const std::string& key, double score
     return res.value();
 }
 
-/*
-
-void setTTL(key, ttl) {
+void Set::setTTL(const std::string& key, uint64_t ttl) {
     // Looks for an elemen in HMap
+    auto found = hmap.lookup(key);
+    uint64_t curTime = getMonotonicTime();
+    // Make microseconds from miliseconds
+    ttl *= 1000;
+    ttl += curTime;
+    if (!found.value()) {
     // if it doesn't exist --> returns nothing
-    // else
-    // Checks its position in heap
+        return ;
+    } else if (found.value()->pos_ == -1) {
     // if pos == -1 --> creates a new item in the heap
-    // updates the position to the end of the heap
-    // then updates the heap at this position depending on provided timer
+        heap.insertHeap(found.value(), ttl);
+    } else {
+        heap.updateHeap(found.value()->pos_, ttl);
+    }
 }
 
-void clearHeap(); --> must be reached from process timers in event loop
-    - in a while loop
-    - delete node from the hmap
-    - delete node from the AVL tree
-    - increase the nworks (don't to more than 2000 deletions)
+std::optional<int64_t> Set::getTTL(const std::string& key) {
 
+    // Looks for an element in HMap
+    auto found = hmap.lookup(key);
+    if (!found.has_value()) {
+        // if doesn't find returns nullopt
+        return std::nullopt;
+    } else if (found.value()->pos_ == -1){
+        // if finds result but no ttl is set
+        return -1;
+    } else { 
+        // if finds --> returns expire time in pos of the node
+        uint64_t curTimeUS = getMonotonicTime();
+        uint64_t expireUS = heap[found.value()->pos_].expire;
+        uint64_t expireIn = curTimeUS < expireUS ? (expireUS - curTimeUS) / 1000 : 0;
+        return  expireIn;
+    }
+}
 
-*/
+void Set::cleanHeap() {
+    // checks current time
+   uint64_t curTime = getMonotonicTime();
+   for (int i = 0; i < 2000 && !heap.empty(); ++i) {
+    // if current time is larger than the expire time in the top node
+        if (heap[0].expire <= curTime) {
+            HNode* hnode = heap.delHeap();
+            delSet(hnode->key_);
+            continue;            
+        }
+        break;
+    }
+}
+
+std::optional<uint64_t> Set::minHeap() {
+    if (heap.empty()) {
+        return std::nullopt;
+    }
+    return heap[0].expire;
+}

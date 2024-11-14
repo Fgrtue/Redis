@@ -19,7 +19,7 @@ public:
 
     // 2. Lookup handles the lookup for both tables
 
-    std::optional<const HNode*> lookup(const std::string& key);
+    std::optional<HNode*> lookup(const std::string& key);
 
     // 3. Deletion
 

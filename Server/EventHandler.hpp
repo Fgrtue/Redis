@@ -7,6 +7,7 @@
 #include <vector>
 #include <assert.h>
 #include <map>
+#include "Clock.hpp"
 #include "Conn.hpp"
 #include "CircBuf.hpp"
 #include "Set/Set.hpp"
@@ -48,6 +49,10 @@ public:
 
    void connection_io(Conn* conn);
 
+   void clearTTL();
+
+   std::optional<uint64_t> topTTL();
+
 private:
 
    void to_initial(Conn* conn);
@@ -77,6 +82,10 @@ private:
    void do_del();
 
    void do_set();
+
+   void do_expire();
+
+   void do_ttl();
 
    void sendErr(int32_t err_no, std::string msg);
    

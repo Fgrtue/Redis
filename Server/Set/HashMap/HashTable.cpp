@@ -72,7 +72,7 @@ const HNode* HTable::h_insert(const std::string& key, size_t hcode, double val, 
     return prev->next_;
 }
 
-std::optional<const HNode*> HTable::h_find(size_t hcode) const {
+std::optional<HNode*> HTable::h_find(size_t hcode) const {
 
     size_t ind = hcode & mask_;
     HNode* ptr = tab_[ind]->next_;

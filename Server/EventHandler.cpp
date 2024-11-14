@@ -15,6 +15,14 @@ void EventHandler::connection_io(Conn* conn) {
     }
 }
 
+void EventHandler::clearTTL() {
+    set.cleanHeap();
+}
+
+std::optional<uint64_t> EventHandler::topTTL() {
+    return set.minHeap();
+}
+
 void EventHandler::to_initial(Conn* conn) {
 
     rv = 0;
@@ -121,23 +129,22 @@ bool EventHandler::do_request(int len) {
 
     // #2. check if command is keys
     // add do_keys command
-    if (cmd_[0] == "get" && cmd_.size() == 2) {
+    if (cmd_[0] == "GET" && cmd_.size() == 2) {
         do_get();
-    } else if (cmd_[0] == "del" && cmd_.size() == 2) {
+    } else if (cmd_[0] == "DEL" && cmd_.size() == 2) {
         do_del();
-    } else if (cmd_[0] == "set" && cmd_.size() == 3) {
+    } else if (cmd_[0] == "SET" && cmd_.size() == 3) {
         do_set();
-    } else if (cmd_[0] == "range" && cmd_.size() == 5) {
+    } else if (cmd_[0] == "RANGE" && cmd_.size() == 5) {
         do_range();
     // # 1.
-    // } else if (cmd_[0] == "expire" && cmd_.size() == 3) {
-    //      do_expire();
+    } else if (cmd_[0] == "EXPIRE" && cmd_.size() == 3) {
+         do_expire();
     // # 2.
-    // } else if (cmd_[0] == "TTL" && cmd_size() == 2) {
-    //      do_ttl(); --> ttl must be non negative
-    //} # 3. ??? do_persist() ??? -- how to implement functionality ?
+    } else if (cmd_[0] == "TTL" && cmd_.size() == 2) {
+         do_ttl(); // --> ttl must be non negative
     } else {
-        // # E3. Unknown cmd
+        // E3. Unknown cmd
         outErr(3, "Unknown command");
     }
     return true;
@@ -225,6 +232,36 @@ void EventHandler::do_set() {
     }
 }
 
+// # 1. Sets a timer on the key
+void EventHandler::do_expire() {
+
+    // Tries to convert the string into number
+    try {
+        int32_t ttl = std::stoi(cmd_[2]);
+        if (ttl < 0) {
+            outErr(4, "TTL must be positive int");
+        }
+        set.setTTL(cmd_[1], ttl);
+        outNil();
+    } catch (const std::invalid_argument& e) {
+        outErr(4, "TTL must be positive int");
+    }
+    // if manages then goes to the function and outrNil
+    // otherwise sends an error back
+}
+
+// # 2. Returns the timer of the node
+void EventHandler::do_ttl() {
+    
+    // Goes to set, either finds the number or not
+    std::optional<int64_t> ttl = set.getTTL(cmd_[1]);
+    if (!ttl.has_value()) {
+        outNil();
+    } else {
+        outInt(ttl.value());
+    }
+}
+
 void EventHandler::sendErr(int32_t err_no, std::string msg) {
     outErr(err_no, msg);
     fill_write_buffer();
@@ -245,7 +282,6 @@ bool EventHandler::try_flush_buffer() {
     }
     return true;
 }
-
 
 void EventHandler::fill_write_buffer() {
 
