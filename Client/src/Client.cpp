@@ -176,7 +176,7 @@ size_t Client::decode(const std::string& res, size_t pos) {
         cout << "Message: " << str << "\n";
     } else if (op == SER::ARR) {
         cout << "Array len: ";
-        int32_t len = 0;
+        int64_t len = 0;
         memcpy(&len, &res[pos], 8);
         pos += 8;
         cout << len << "\n";
