@@ -23,14 +23,14 @@ This is my implementation of Redis Server
    - `DEL <key>`
      - Deletes the key `key`
    - `RANGE <key> <score=double> <offset=int64> <limit=int64>`
-     - Get up to `limit` the keys in increasing order starting from `key'` with value `val'`, which if offset from `key` with value `score` by `offset` elements 
+     - Get up to `limit` the keys in increasing order starting from `key'` with value `val'`, which is offset from `key` with value `score` by `offset` elements 
    - `EXPIRE <key> <time=int64>`
      - Set the expiration time of key `key` to time `time`
    - `TTL <key>`
      - Gets the expiration time of key `key`
 2. Client tests these features. In the `main.cpp`, some tests are presented that can be taken as an example.
 
-Observe that the port used by the Server is 23'232. The IP address is the same as the address of the machine where it is run.
+Observe that the port used by the Server is `23'232`. The IP address is the same as the address of the machine where it is run.
 
 ## Interesting technical details
 
