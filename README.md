@@ -2,7 +2,7 @@
 This is my implementation of Redis Server
 
 ## How to build? 
-
+- Requires `CMake` version `3.9.1` or later.
 - Contains server and the client.
 1. Get into folder that you want to build
    `cd Server` OR `cd Client`
@@ -11,6 +11,7 @@ This is my implementation of Redis Server
 3. Call `cmake ..` with  `-DCMAKE_BUILD_TYPE=Release` or `-DCMAKE_BUILD_TYPE=Debug` depending on the mode for build
    `cmake .. -DCMAKE_BUILD_TYPE=Release`
 4. Call `cmake --build .`
+5. In the `/bin` folder you will find the executable
 
 ## What's inside? 
 
