@@ -156,7 +156,7 @@ void AVL::insertTree(AVLNode* node) {
 
 AVLNode* AVL::insert(AVLNode* node, AVLNode* cur) {
 
-    if (*cur == *node) {
+    if (*node == *cur) {
         return nullptr;
     }
 

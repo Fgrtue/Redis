@@ -19,14 +19,14 @@ struct AVLNode {
     AVLNode*            right_;
     AVLNode*            parent_;
 
-    bool isEqual(double, double);
+    bool isEqual(double, double) const;
 
-    bool eq(double score, const std::string_view key);
+    bool eq(double score, const std::string_view key) const;
 
-    bool less(double score, const std::string_view key);
+    bool less(double score, const std::string_view key) const;
 
-    bool operator< (const AVLNode& other);
+    bool operator< (const AVLNode& other) const;
 
-    bool operator== (const AVLNode& other);
+    bool operator== (const AVLNode& other) const;
 
 };

@@ -13,26 +13,26 @@ AVLNode::AVLNode(double score, const std::string_view key, AVLNode* parent)
 , parent_(parent)
 {}
 
-bool AVLNode::isEqual(double a, double b) {
+bool AVLNode::isEqual(double a, double b) const {
     return std::abs(a - b) < eps;
 }
 
-bool AVLNode::eq(double score, const std::string_view key) {
+bool AVLNode::eq(double score, const std::string_view key) const {
     return isEqual(this->score_, score) && this->key_ == key; 
 }
 
-bool AVLNode::less(double score, const std::string_view key) {
+bool AVLNode::less(double score, const std::string_view key) const {
     if (isEqual(this->score_, score)) {
         return this->key_ < key;
     }
     return this->score_ < score;
 }
 
-bool AVLNode::operator==(const AVLNode& other) {
+bool AVLNode::operator==(const AVLNode& other) const {
     return isEqual(score_, other.score_) && key_ == other.key_;
 }
 
-bool AVLNode::operator<(const AVLNode& other) {
+bool AVLNode::operator<(const AVLNode& other) const {
     if (isEqual(score_, other.score_)) {
         return this->key_ < other.key_;
     }
